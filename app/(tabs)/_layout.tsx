@@ -96,7 +96,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         style={[
           styles.tabBarContainer,
           {
-            backgroundColor: "#111214", // Deep dark pill background
+            backgroundColor: "#111214",
             shadowColor: "#000",
           },
         ]}
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    width: SCREEN_WIDTH * 0.94, // Slightly wider to hold 5 tabs comfortably
+    width: SCREEN_WIDTH * 0.94,
     height: 64,
     borderRadius: 32,
     paddingHorizontal: 8,
@@ -176,12 +176,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   tabButtonActive: {
-    flex: 1.8, // Bung rộng hơn cho tab active
+    flex: 1.8,
     paddingHorizontal: 12,
     gap: 6,
   },
   tabButtonInactive: {
-    flex: 1, // Thu nhỏ diện tích đều cho các tab inactive
+    flex: 1,
     paddingHorizontal: 0,
   },
   tabLabel: {

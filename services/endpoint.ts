@@ -5,5 +5,8 @@ export const endpoints = {
     resetPassword: "/auth/reset-password",
     refreshToken: "/auth/refresh-token",
   },
+  translations: {
+    mobileKeys: "/translations/mobile-keys",
+  },
 };
 

@@ -1,26 +1,21 @@
 import { DeviceEventEmitter } from "react-native";
 
-// Hiển thị toast thông báo
 export const showToast = (message: string, data?: any) => {
   DeviceEventEmitter.emit("showToast", message, data);
 };
 
-// Hiển thị toast lỗi
 export const showToastError = (message: string, data?: any) => {
   DeviceEventEmitter.emit("showToastError", message, data);
 };
 
-// Hiển thị toast thông tin
 export const showToastInfo = (message: string, data?: any) => {
   DeviceEventEmitter.emit("showToastInfo", message, data);
 };
 
-// Hiển thị toast thành công
 export const showToastSuccess = (message: string, data?: any) => {
   DeviceEventEmitter.emit("showToastSuccess", message, data);
 };
 
-// Hiển thị toast tùy chỉnh
 export const showToastCustom = (
   data: {
     title?: string;
@@ -31,13 +26,11 @@ export const showToastCustom = (
   DeviceEventEmitter.emit("showToastCustom", data);
 };
 
-// Lắng nghe toast thông báo
 export const listenForToast = (callback: (message: string) => void) => {
   const subscription = DeviceEventEmitter.addListener("showToast", callback);
   return () => subscription.remove();
 };
 
-// Lắng nghe toast lỗi
 export const listenForToastError = (callback: (message: string) => void) => {
   const subscription = DeviceEventEmitter.addListener(
     "showToastError",
@@ -46,7 +39,6 @@ export const listenForToastError = (callback: (message: string) => void) => {
   return () => subscription.remove();
 };
 
-// Lắng nghe toast thông tin
 export const listenForToastInfo = (callback: (message: string) => void) => {
   const subscription = DeviceEventEmitter.addListener(
     "showToastInfo",
@@ -55,7 +47,6 @@ export const listenForToastInfo = (callback: (message: string) => void) => {
   return () => subscription.remove();
 };
 
-// Lắng nghe toast thành công
 export const listenForToastSuccess = (callback: (message: string) => void) => {
   const subscription = DeviceEventEmitter.addListener(
     "showToastSuccess",

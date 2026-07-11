@@ -1,4 +1,5 @@
 import { Colors } from "@/constants/Colors";
+import { getStatusBarHeight } from "@/utils/utils";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -10,7 +11,6 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import { getStatusBarHeight } from "@/utils/utils";
 
 interface ToastData {
   title?: string;
@@ -26,7 +26,6 @@ export const ToastContainer = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(-100)).current;
   const timerRef = useRef<any>(null);
-
 
   const hideToast = () => {
     Animated.parallel([
@@ -51,7 +50,6 @@ export const ToastContainer = () => {
     }
     setToast(data);
 
-    // Initial state before entry
     fadeAnim.setValue(0);
     slideAnim.setValue(-50);
 
@@ -62,7 +60,7 @@ export const ToastContainer = () => {
         useNativeDriver: true,
       }),
       Animated.spring(slideAnim, {
-        toValue: 20, // Distance from top
+        toValue: 20,
         tension: 40,
         friction: 8,
         useNativeDriver: true,
@@ -183,7 +181,6 @@ export const ToastContainer = () => {
   );
 };
 
-// Hook for custom calls inside UI components
 export const useToast = () => {
   return {
     show: (msg: string) => DeviceEventEmitter.emit("showToast", msg),
@@ -201,7 +198,7 @@ export const useToast = () => {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    top: getStatusBarHeight(true) + 10, // Safely absolute positioned near top
+    top: getStatusBarHeight(true) + 10,
     left: 20,
     right: 20,
     zIndex: 9999,

@@ -1,3 +1,6 @@
+import { rootApi } from "@/services";
+import { endpoints } from "@/services/endpoint";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 
 export const translations = {
@@ -46,6 +49,10 @@ export const translations = {
       notification: "Thông Báo",
       profile: "Cá Nhân",
     },
+    notification: {
+      empty: "Chưa có thông báo nào",
+      checkNew: "Kiểm tra thông báo mới để không bỏ lỡ thông tin quan trọng.",
+    },
   },
   en: {
     common: {
@@ -92,6 +99,11 @@ export const translations = {
       notification: "Notifications",
       profile: "Profile",
     },
+    notification: {
+      empty: "No notifications yet",
+      checkNew:
+        "Check for new notifications so you don't miss important information.",
+    },
   },
 };
 
@@ -99,23 +111,84 @@ type Language = "vi" | "en";
 
 interface LanguageState {
   language: Language;
+  dynamicTranslations: any;
   setLanguage: (language: Language) => void;
+  initLanguage: () => Promise<void>;
+  syncTranslationsFromApi: () => Promise<void>;
   t: (path: string) => string;
 }
 
+const deepMerge = (target: any, source: any) => {
+  if (typeof target !== "object" || target === null) return source;
+  if (typeof source !== "object" || source === null) return target;
+
+  const output = Object.assign({}, target);
+  Object.keys(source).forEach((key) => {
+    if (typeof source[key] === "object" && source[key] !== null) {
+      if (!(key in target)) Object.assign(output, { [key]: source[key] });
+      else output[key] = deepMerge(target[key], source[key]);
+    } else {
+      Object.assign(output, { [key]: source[key] });
+    }
+  });
+  return output;
+};
+
 export const useLanguageStore = create<LanguageState>((set, get) => ({
   language: "vi",
-  setLanguage: (language: Language) => set({ language }),
+  dynamicTranslations: null,
+
+  setLanguage: async (language: Language) => {
+    await AsyncStorage.setItem("appLanguage", language);
+    set({ language });
+  },
+
+  initLanguage: async () => {
+    try {
+      const savedLang = await AsyncStorage.getItem("appLanguage");
+      if (savedLang === "vi" || savedLang === "en") {
+        set({ language: savedLang });
+      }
+
+      const cachedTranslations = await AsyncStorage.getItem("appTranslations");
+      if (cachedTranslations) {
+        set({ dynamicTranslations: JSON.parse(cachedTranslations) });
+      }
+    } catch (e) {
+      console.log("Failed to load language", e);
+    }
+  },
+
+  syncTranslationsFromApi: async () => {
+    try {
+      const res = await rootApi.post(endpoints.translations.mobileKeys, {});
+      if (res?.data?.data) {
+        const dynamicTranslations = res.data.data;
+        await AsyncStorage.setItem(
+          "appTranslations",
+          JSON.stringify(dynamicTranslations),
+        );
+        set({ dynamicTranslations });
+      }
+    } catch (e) {
+      console.log("Failed to sync translations", e);
+    }
+  },
+
   t: (path: string) => {
-    const lang = get().language;
+    const { language, dynamicTranslations } = get();
     const keys = path.split(".");
-    let current: any = translations[lang];
-    
+
+    let current: any =
+      dynamicTranslations && dynamicTranslations[language]
+        ? deepMerge(translations[language], dynamicTranslations[language])
+        : translations[language];
+
     for (const key of keys) {
       if (current && current[key] !== undefined) {
         current = current[key];
       } else {
-        return path; // Fallback to path string if not found
+        return path;
       }
     }
     return typeof current === "string" ? current : path;

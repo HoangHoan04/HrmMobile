@@ -2,8 +2,6 @@ import { Colors } from "@/constants/Colors";
 import * as Haptics from "expo-haptics";
 import React from "react";
 import { Pressable, Text, useColorScheme, View } from "react-native";
-
-// 1. Định nghĩa kiểu dữ liệu cho từng tùy chọn (Option)
 interface RadioOption {
   label: string;
   value: string | number;
@@ -11,9 +9,9 @@ interface RadioOption {
 
 interface CustomRadioProps {
   options: RadioOption[];
-  selectedValue: string | number; // Giá trị đang được chọn hiện tại
-  onChange: (value: string | number) => void; // Hàm kích hoạt khi người dùng chọn nút mới
-  label?: string; // Tiêu đề lớn phía trên nhóm nút (nếu có)
+  selectedValue: string | number;
+  onChange: (value: string | number) => void;
+  label?: string;
 }
 
 export const RadioButton = ({

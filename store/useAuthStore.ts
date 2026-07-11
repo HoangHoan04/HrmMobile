@@ -1,6 +1,6 @@
-import { create } from "zustand";
 import Helper from "@/helper/helpers";
 import * as SecureStore from "expo-secure-store";
+import { create } from "zustand";
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -31,7 +31,6 @@ export const useAuthStore = create<AuthState>((set: any) => ({
           user: JSON.parse(userStr),
         });
       } else {
-        // Clear anything left to be safe
         await Helper.clearDataLogin();
         await SecureStore.deleteItemAsync("USER_PROFILE");
       }

@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { Colors } from "@/constants/Colors";
-import { useColorScheme, View, Text } from "react-native";
 import { Card } from "@/components/common/Card";
 import { Button } from "@/components/common/button/Button";
+import { Colors } from "@/constants/Colors";
+import React, { useState } from "react";
+import { Text, useColorScheme, View } from "react-native";
 
 export default function CheckInScreen() {
   const [checkedIn, setCheckedIn] = useState(false);
@@ -10,7 +10,6 @@ export default function CheckInScreen() {
   const theme = Colors[colorScheme];
 
   const handleToggle = () => {
-    // TODO: call API
     setCheckedIn((prev) => !prev);
   };
 
@@ -20,10 +19,23 @@ export default function CheckInScreen() {
         <View style={{ marginTop: 32, width: "100%" }}>
           <Card padding={32}>
             <View style={{ alignItems: "center", width: "100%" }}>
-              <Text style={{ fontSize: 32, fontWeight: "bold", marginBottom: 8, color: theme.textMain }}>
+              <Text
+                style={{
+                  fontSize: 32,
+                  fontWeight: "bold",
+                  marginBottom: 8,
+                  color: theme.textMain,
+                }}
+              >
                 {checkedIn ? "Đã Check-in" : "Chưa Check-in"}
               </Text>
-              <Text style={{ fontSize: 14, color: theme.textSecondary, marginBottom: 24 }}>
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: theme.textSecondary,
+                  marginBottom: 24,
+                }}
+              >
                 {new Date().toLocaleDateString("vi-VN")}
               </Text>
               <View style={{ width: "100%" }}>

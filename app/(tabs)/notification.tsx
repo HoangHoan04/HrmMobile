@@ -8,19 +8,17 @@ import { useLanguageStore } from "@/store/useLanguageStore";
 export default function NotificationScreen() {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
-  const { language } = useLanguageStore();
+  const { t } = useLanguageStore();
 
   return (
     <View style={{ flex: 1, padding: 16, backgroundColor: theme.background }}>
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 16 }}>
         <Ionicons name="notifications-off-outline" size={64} color={theme.textSecondary} />
         <Text style={{ fontSize: 16, fontWeight: "600", color: theme.textMain }}>
-          {language === "vi" ? "Chưa có thông báo nào" : "No notifications yet"}
+          {t("notification.empty")}
         </Text>
         <Text style={{ fontSize: 14, color: theme.textSecondary, textAlign: "center", paddingHorizontal: 32 }}>
-          {language === "vi" 
-            ? "Chúng tôi sẽ thông báo cho bạn khi có cập nhật mới." 
-            : "We will notify you when there is a new update."}
+          {t("notification.checkNew")}
         </Text>
       </View>
     </View>

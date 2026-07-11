@@ -1,11 +1,21 @@
 import { Colors } from "@/constants/Colors";
-import React from "react";
-import { useColorScheme, Modal as RNModal, View, TouchableOpacity, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import React from "react";
+import {
+  Modal as RNModal,
+  TouchableOpacity,
+  useColorScheme,
+  View,
+} from "react-native";
 
 export const Modal = ({ isOpen, onClose, children }: any) => {
   return (
-    <RNModal visible={isOpen} transparent animationType="fade" onRequestClose={onClose}>
+    <RNModal
+      visible={isOpen}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
       <TouchableOpacity
         activeOpacity={1}
         style={{
@@ -50,7 +60,16 @@ export const ModalHeader = ({ children }: any) => {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   return (
-    <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: theme.border, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+    <View
+      style={{
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.border,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}
+    >
       {children}
     </View>
   );
@@ -64,7 +83,15 @@ export const ModalFooter = ({ children }: any) => {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   return (
-    <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: "row", justifyContent: "flex-end" }}>
+    <View
+      style={{
+        padding: 16,
+        borderTopWidth: 1,
+        borderTopColor: theme.border,
+        flexDirection: "row",
+        justifyContent: "flex-end",
+      }}
+    >
       {children}
     </View>
   );
@@ -80,4 +107,4 @@ export const ModalCloseButton = ({ onPress }: any) => {
   );
 };
 
-export const ModalBackdrop = () => null; // Handled internally
+export const ModalBackdrop = () => null;

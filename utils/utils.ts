@@ -1,17 +1,17 @@
-import moment from 'moment';
-import { Dimensions, PixelRatio, Platform, StatusBar } from 'react-native';
-import { initialWindowMetrics } from 'react-native-safe-area-context';
+import moment from "moment";
+import { Dimensions, PixelRatio, Platform, StatusBar } from "react-native";
+import { initialWindowMetrics } from "react-native-safe-area-context";
 
 export function hasNotch() {
   const insets = initialWindowMetrics?.insets;
   return (
-    Platform.OS === 'ios' &&
+    Platform.OS === "ios" &&
     !Platform.isPad &&
     !Platform.isTV &&
     ((insets?.bottom ?? 0) > 0 || (insets?.top ?? 0) > 20)
   );
 }
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 export const deviceWidth = width;
 export const deviceHeight = height;
@@ -25,7 +25,7 @@ export function ifNotch(notchStyle: any, regularStyle: any) {
 export function getStatusBarHeight(safe: boolean) {
   const insets = initialWindowMetrics?.insets;
   return Platform.select({
-    ios: insets ? insets.top : (hasNotch() ? (safe ? 44 : 35) : 20),
+    ios: insets ? insets.top : hasNotch() ? (safe ? 44 : 35) : 20,
     android: StatusBar.currentHeight || 0,
     default: 0,
   });
@@ -33,21 +33,21 @@ export function getStatusBarHeight(safe: boolean) {
 
 export function getBottomSpace() {
   const insets = initialWindowMetrics?.insets;
-  return insets ? insets.bottom : (hasNotch() ? 34 : 0);
+  return insets ? insets.bottom : hasNotch() ? 34 : 0;
 }
 
-export const keyboardAvoidingBehavior = Platform.OS === 'ios' ? 'padding' : undefined;
-
-
+export const keyboardAvoidingBehavior =
+  Platform.OS === "ios" ? "padding" : undefined;
 
 export const widthPercentageToDP = (widthPercent: number) => {
-  const elemWidth = typeof widthPercent === 'number' ? widthPercent : parseFloat(widthPercent);
+  const elemWidth =
+    typeof widthPercent === "number" ? widthPercent : parseFloat(widthPercent);
   return PixelRatio.roundToNearestPixel((deviceWidth * elemWidth) / 100);
 };
 
 export function getCurrentMonth() {
   const date = new Date();
-  const currentMonth = date.getMonth() + 1; // Tháng trong JavaScript bắt đầu từ 0
+  const currentMonth = date.getMonth() + 1;
   return currentMonth;
 }
 
@@ -55,28 +55,24 @@ export function getMonth() {
   return new Date();
 }
 
-export function formatDate(text: Date | string | number | undefined, format?: string) {
-  if (!text) return '';
-  return moment(text).format(format ? format : 'DD/MM/YY');
+export function formatDate(
+  text: Date | string | number | undefined,
+  format?: string,
+) {
+  if (!text) return "";
+  return moment(text).format(format ? format : "DD/MM/YY");
 }
 export function formatDateTime(text: Date | string | number | undefined) {
-  if (!text) return '';
-  return moment(text).format('HH:mm DD/MM/YY');
+  if (!text) return "";
+  return moment(text).format("HH:mm DD/MM/YY");
 }
 
 export function isDateInCurrentMonth(dateString: string) {
-  // Tạo đối tượng ngày từ chuỗi ngày
   const date = new Date(dateString);
-
-  // Lấy ngày, tháng, và năm từ đối tượng ngày
   const day = date.getDate();
   const month = date.getMonth();
   const year = date.getFullYear();
-
-  // Lấy ngày hiện tại
   const currentDate = new Date();
-
-  // So sánh ngày và tháng của ngày được cung cấp với ngày hiện tại
   return (
     day === currentDate.getDate() &&
     month === currentDate.getMonth() &&
@@ -87,29 +83,31 @@ export function isDateInCurrentMonth(dateString: string) {
 export function formatMoneyD(money?: number | string) {
   if (!!money || money == 0) {
     if (money && money.toString().length > 0) {
-      return money.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.') + 'đ';
+      return money.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.") + "đ";
     } else {
-      return money + 'đ';
+      return money + "đ";
     }
   } else {
-    return '0đ';
+    return "0đ";
   }
 }
 export function formatMoneyVND(money: number) {
   if (!!money || money == 0) {
     if (money && money.toString().length > 0) {
-      return money.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,') + ' VND';
+      return (
+        money.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,") + " VND"
+      );
     } else {
-      return money + ' VND';
+      return money + " VND";
     }
   } else {
-    return '0 VND';
+    return "0 VND";
   }
 }
 
 export function replaceMoney(str: string) {
-  if (str && typeof str == 'string') return str.replace(/\./g, '');
-  else return '0';
+  if (str && typeof str == "string") return str.replace(/\./g, "");
+  else return "0";
 }
 
-export const isIOS = Platform.OS === 'ios';
+export const isIOS = Platform.OS === "ios";

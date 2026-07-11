@@ -1,16 +1,23 @@
+import { ToastContainer } from "@/components/common/Toast";
+import { Colors } from "@/constants/Colors";
 import { useAuthStore } from "@/store/useAuthStore";
+import { Feather } from "@expo/vector-icons";
 import { Slot, useRouter, useSegments } from "expo-router";
 import React, { useEffect } from "react";
-import { View, Text, ActivityIndicator, useColorScheme } from "react-native";
-import { Colors } from "@/constants/Colors";
-import { Feather } from "@expo/vector-icons";
-import { ToastContainer } from "@/components/common/Toast";
+import { ActivityIndicator, Text, useColorScheme, View } from "react-native";
+
+import { useLanguageStore } from "@/store/useLanguageStore";
 
 export default function RootLayout() {
   const isInitialized = useAuthStore((s) => s.isInitialized);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const initializeAuth = useAuthStore((s) => s.initializeAuth);
-  
+
+  const initLanguage = useLanguageStore((s) => s.initLanguage);
+  const syncTranslationsFromApi = useLanguageStore(
+    (s) => s.syncTranslationsFromApi,
+  );
+
   const segments = useSegments();
   const router = useRouter();
 
@@ -19,6 +26,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     initializeAuth();
+    initLanguage().then(() => syncTranslationsFromApi());
   }, []);
 
   useEffect(() => {
@@ -27,10 +35,8 @@ export default function RootLayout() {
     const inAuthGroup = segments[0] === "(auth)";
 
     if (isAuthenticated && inAuthGroup) {
-      // Đã đăng nhập nhưng đang ở trang login/forgot -> Về trang chính
       router.replace("/(tabs)");
     } else if (!isAuthenticated && !inAuthGroup) {
-      // Chưa đăng nhập nhưng không ở trong nhóm auth -> Đẩy ra trang login
       router.replace("/(auth)/login");
     }
   }, [isInitialized, isAuthenticated, segments]);
@@ -38,8 +44,22 @@ export default function RootLayout() {
   if (!isInitialized) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.background }}>
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
-          <Text style={{ fontSize: 32, fontWeight: "bold", color: theme.primary, marginBottom: 24 }}>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 24,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 32,
+              fontWeight: "bold",
+              color: theme.primary,
+              marginBottom: 24,
+            }}
+          >
             Welcome to HRM
           </Text>
           <View
@@ -63,7 +83,13 @@ export default function RootLayout() {
 
         <View style={{ paddingBottom: 48, alignItems: "center", gap: 12 }}>
           <ActivityIndicator size="large" color={theme.primary} />
-          <Text style={{ fontSize: 12, color: theme.textSecondary, letterSpacing: 1 }}>
+          <Text
+            style={{
+              fontSize: 12,
+              color: theme.textSecondary,
+              letterSpacing: 1,
+            }}
+          >
             VERSION 1.0.0
           </Text>
         </View>
@@ -78,4 +104,3 @@ export default function RootLayout() {
     </>
   );
 }
-

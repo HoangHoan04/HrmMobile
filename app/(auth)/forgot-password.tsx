@@ -90,7 +90,6 @@ export default function ForgotPasswordScreen() {
         keyboardShouldPersistTaps="handled"
         bounces={false}
       >
-        {/* SECTION 1: TOP BACKGROUND WAVE */}
         <View style={{ height: 260, position: "relative", overflow: "hidden" }}>
           <View
             style={{
@@ -105,14 +104,12 @@ export default function ForgotPasswordScreen() {
             }}
           />
 
-          {/* Language Change top right */}
           <View
             style={{ position: "absolute", top: 70, right: 30, zIndex: 10 }}
           >
             <LanguageChange color="#FFFFFF" />
           </View>
 
-          {/* HRM Logo text */}
           <View style={{ position: "absolute", bottom: 20, right: 40 }}>
             <Text
               style={{ fontSize: 38, fontWeight: "700", color: theme.primary }}
@@ -122,9 +119,7 @@ export default function ForgotPasswordScreen() {
           </View>
         </View>
 
-        {/* SECTION 2: FORM CONTENT */}
         <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: 20 }}>
-          {/* Sleek Timeline Step Progress Indicator */}
           <View
             style={{
               marginBottom: 28,
@@ -132,7 +127,6 @@ export default function ForgotPasswordScreen() {
               position: "relative",
             }}
           >
-            {/* Connector Line in Background */}
             <View
               style={{
                 position: "absolute",
@@ -145,7 +139,6 @@ export default function ForgotPasswordScreen() {
                 zIndex: 1,
               }}
             />
-            {/* Active Connector Line */}
             <View
               style={{
                 position: "absolute",
@@ -177,7 +170,6 @@ export default function ForgotPasswordScreen() {
 
                 return (
                   <View key={s} style={{ alignItems: "center", width: 70 }}>
-                    {/* Circle */}
                     <View
                       style={{
                         width: 28,
@@ -215,7 +207,6 @@ export default function ForgotPasswordScreen() {
                         </Text>
                       )}
                     </View>
-                    {/* Label */}
                     <Text
                       style={{
                         fontSize: 11,
@@ -244,7 +235,6 @@ export default function ForgotPasswordScreen() {
             {t("forgotPassword.title")}
           </Text>
 
-          {/* STEP 1: ENTER EMAIL */}
           {step === 1 && (
             <View style={{ gap: 20 }}>
               <View style={{ position: "relative", justifyContent: "center" }}>
@@ -309,7 +299,6 @@ export default function ForgotPasswordScreen() {
             </View>
           )}
 
-          {/* STEP 2: VERIFY OTP */}
           {step === 2 && (
             <View style={{ gap: 20 }}>
               <Text
@@ -322,7 +311,6 @@ export default function ForgotPasswordScreen() {
                 {t("forgotPassword.emailSent")} {email}.
               </Text>
 
-              {/* Custom OTP input component */}
               <View style={{ gap: 8 }}>
                 <Text
                   style={{
@@ -371,10 +359,8 @@ export default function ForgotPasswordScreen() {
             </View>
           )}
 
-          {/* STEP 3: SET NEW PASSWORD */}
           {step === 3 && (
             <View style={{ gap: 20 }}>
-              {/* Password Input with validation */}
               <View style={{ gap: 8 }}>
                 <Text
                   style={{
@@ -411,7 +397,6 @@ export default function ForgotPasswordScreen() {
                   />
                 </View>
 
-                {/* Password validation indicators */}
                 {newPassword.length > 0 && (
                   <View style={{ marginTop: 6, paddingHorizontal: 4 }}>
                     {renderCriteria(
@@ -438,7 +423,6 @@ export default function ForgotPasswordScreen() {
                 )}
               </View>
 
-              {/* Submit Button */}
               <View style={{ marginTop: 12 }}>
                 <Button
                   onPress={handleResetPassword}

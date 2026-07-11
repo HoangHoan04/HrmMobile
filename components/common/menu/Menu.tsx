@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderTopWidth: 1,
     paddingHorizontal: 20,
-    paddingBottom: 34, // Safe area padding for bottom screen edge
+    paddingBottom: 34,
     paddingTop: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
