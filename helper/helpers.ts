@@ -125,6 +125,23 @@ export const formatDate = (
   return moment(date).format(format);
 };
 
+export const getVietnameseDate = (): string => {
+  const days = [
+    "Chủ nhật",
+    "Thứ hai",
+    "Thứ ba",
+    "Thứ tư",
+    "Thứ năm",
+    "Thứ sáu",
+    "Thứ bảy",
+  ];
+  const now = new Date();
+  const dayName = days[now.getDay()];
+  const date = now.getDate().toString().padStart(2, "0");
+  const month = (now.getMonth() + 1).toString().padStart(2, "0");
+  return `${dayName}, ngày ${date} Tháng ${month}`;
+};
+
 export const getRandomNumber = (min: number, max: number): number => {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 };

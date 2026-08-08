@@ -18,6 +18,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: process.env.EXPO_PUBLIC_BUNDLE_ID || 'com.hrm.mobile',
+    infoPlist: {
+      NSAppTransportSecurity: {
+        NSAllowsArbitraryLoads: true,
+      },
+    },
   },
   android: {
     adaptiveIcon: {
@@ -33,7 +38,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     output: 'static',
     favicon: './assets/images/favicon.png',
   },
-  plugins: ['expo-router', 'expo-secure-store'],
+  plugins: [
+    'expo-router',
+    'expo-secure-store',
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'Cho phép truy cập thư viện ảnh để tải avatar và tài liệu lên.',
+        cameraPermission: 'Cho phép truy cập camera để chụp ảnh tải lên.',
+      },
+    ],
+  ],
   experiments: {
     typedRoutes: true,
   },

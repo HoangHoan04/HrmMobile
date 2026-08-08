@@ -37,21 +37,22 @@ const initApi = (url?: string, headers = {}) => {
       refreshToken: rfToken,
     });
 
-    if (!data?.accessToken) {
+    const accessToken = data?.token || data?.accessToken;
+    if (!accessToken) {
       throw new Error("Invalid refresh response");
     }
 
-    await Helper.saveToken(data.accessToken);
+    await Helper.saveToken(accessToken);
     if (data.refreshToken) {
       await Helper.saveRfToken(data.refreshToken);
     }
 
-    return data.accessToken;
+    return accessToken;
   };
 
   const api = axios.create({
     baseURL: url,
-    timeout: 100000,
+    timeout: 30000,
     headers: {
       "Content-Type": "application/json",
       accept: "*/*",
@@ -67,6 +68,9 @@ const initApi = (url?: string, headers = {}) => {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    if (config.data instanceof FormData) {
+      delete config.headers["Content-Type"];
+    }
     return config;
   });
 
@@ -75,12 +79,21 @@ const initApi = (url?: string, headers = {}) => {
     async (error: AxiosError) => {
       const originalRequest = error.config as AxiosRequestConfig & {
         _retry?: boolean;
+        skipErrorToast?: boolean;
       };
 
-      const status = error.response?.status || (error.response?.data as any)?.httpCode;
-      const hasAuthHeader = originalRequest.headers && (originalRequest.headers.Authorization || originalRequest.headers.authorization);
+      const status =
+        error.response?.status || (error.response?.data as any)?.httpCode;
+      const hasAuthHeader =
+        originalRequest.headers &&
+        (originalRequest.headers.Authorization ||
+          originalRequest.headers.authorization);
 
-      if ((status === 401 || status === 403) && !originalRequest._retry && hasAuthHeader) {
+      if (
+        (status === 401 || status === 403) &&
+        !originalRequest._retry &&
+        hasAuthHeader
+      ) {
         if (isRefreshing) {
           return new Promise((resolve, reject) => {
             failedQueue.push({
@@ -109,6 +122,10 @@ const initApi = (url?: string, headers = {}) => {
         } finally {
           isRefreshing = false;
         }
+      }
+
+      if (originalRequest.skipErrorToast) {
+        return Promise.reject(error);
       }
 
       showToastError(

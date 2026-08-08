@@ -1,3 +1,6 @@
-import initApi from './init';
-const rootApi = initApi(process.env.EXPO_PUBLIC_API);
+import initApi from "./init";
+import { getApiBaseUrl, logApiConfig } from "./apiConfig";
+
+logApiConfig();
+const rootApi = initApi(getApiBaseUrl());
 export { rootApi };

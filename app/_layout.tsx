@@ -1,5 +1,5 @@
 import { ToastContainer } from "@/components/common/Toast";
-import { Colors } from "@/constants/Colors";
+import { Colors } from "@/constants/common/Colors";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Feather } from "@expo/vector-icons";
 import { Slot, useRouter, useSegments } from "expo-router";
@@ -11,12 +11,10 @@ import { useLanguageStore } from "@/store/useLanguageStore";
 export default function RootLayout() {
   const isInitialized = useAuthStore((s) => s.isInitialized);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
   const initializeAuth = useAuthStore((s) => s.initializeAuth);
 
   const initLanguage = useLanguageStore((s) => s.initLanguage);
-  const syncTranslationsFromApi = useLanguageStore(
-    (s) => s.syncTranslationsFromApi,
-  );
 
   const segments = useSegments();
   const router = useRouter();
@@ -26,20 +24,31 @@ export default function RootLayout() {
 
   useEffect(() => {
     initializeAuth();
-    initLanguage().then(() => syncTranslationsFromApi());
+    initLanguage();
   }, []);
 
   useEffect(() => {
     if (!isInitialized) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+    const isOnboarding = segments[1] === "onboarding";
 
-    if (isAuthenticated && inAuthGroup) {
-      router.replace("/(tabs)");
-    } else if (!isAuthenticated && !inAuthGroup) {
-      router.replace("/(auth)/login");
+    if (!onboardingCompleted) {
+      if (!isOnboarding) {
+        router.replace("/(auth)/onboarding");
+      }
+    } else {
+      if (isAuthenticated) {
+        if (inAuthGroup) {
+          router.replace("/(tabs)");
+        }
+      } else {
+        if (isOnboarding || !inAuthGroup) {
+          router.replace("/(auth)/login");
+        }
+      }
     }
-  }, [isInitialized, isAuthenticated, segments]);
+  }, [isInitialized, isAuthenticated, onboardingCompleted, segments]);
 
   if (!isInitialized) {
     return (

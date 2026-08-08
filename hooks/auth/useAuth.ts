@@ -1,10 +1,14 @@
+import { ROUTES } from "@/constants/common/routes";
+import { showToastError, showToastSuccess } from "@/helper/ToastEventEmitter";
 import { endpoints } from "@/services/endpoint";
 import { rootApi } from "@/services/rootApi";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { showToastError, showToastSuccess } from "@/helper/ToastEventEmitter";
-import { ROUTES } from "@/constants/routes";
+import { useCallback, useEffect, useState } from "react";
+
+function extractToken(data: any): string | null {
+  return data?.token || data?.accessToken || data?.Token || null;
+}
 
 export function useLogin() {
   const [username, setUsername] = useState("");
@@ -23,19 +27,30 @@ export function useLogin() {
         username,
         password,
       });
-      if (data && data.accessToken) {
-        await login(data.accessToken, data.refreshToken, data.user);
+      const token = extractToken(data);
+      const refreshToken = data?.refreshToken || data?.RefreshToken;
+      if (data && token && refreshToken) {
+        const user = data.user || {
+          username: data.username || data.Username,
+          type: data.type || data.Type,
+          employeeId: data.employeeId || data.EmployeeId,
+          companyId: data.companyId || data.CompanyId,
+          branchId: data.branchId || data.BranchId,
+        };
+        await login(token, refreshToken, user);
         router.replace(ROUTES.tabs.home);
       } else {
         showToastError("Đăng nhập không thành công");
       }
     } catch (error: any) {
-      console.log("=== LOGIN ERROR ===", error.message, error.response?.data);
       const errorMsg =
         error.response?.data?.message ||
+        error.response?.data ||
         error.message ||
         "Đã xảy ra lỗi khi đăng nhập";
-      showToastError(errorMsg);
+      showToastError(
+        typeof errorMsg === "string" ? errorMsg : "Đã xảy ra lỗi khi đăng nhập",
+      );
     } finally {
       setLoading(false);
     }
@@ -81,7 +96,7 @@ export function useForgotPassword() {
     }
   };
 
-  const handleResetPassword = async () => {
+  const handleResetPassword = async (onSuccess?: () => void) => {
     if (!otp || !newPassword) {
       showToastError("Vui lòng nhập OTP và mật khẩu mới");
       return;
@@ -91,10 +106,14 @@ export function useForgotPassword() {
       await rootApi.post(endpoints.auth.resetPassword, {
         email,
         otp,
-        password: newPassword,
+        newPassword: newPassword,
       });
       showToastSuccess("Mật khẩu đã được đặt lại thành công");
-      router.push(ROUTES.auth.login);
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push(ROUTES.auth.login);
+      }
     } catch (error: any) {
       showToastError(
         error.response?.data?.message || "Không thể đặt lại mật khẩu",
@@ -118,3 +137,42 @@ export function useForgotPassword() {
   };
 }
 
+export function useProfile() {
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const logout = useAuthStore((s) => s.logout);
+
+  const fetchProfile = useCallback(async () => {
+    if (!isAuthenticated) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log(`[Mobile useProfile] GET ${endpoints.auth.me}`);
+      const { data } = await rootApi.get(endpoints.auth.me, {
+        skipErrorToast: true,
+      } as any);
+      setProfile(data);
+    } catch (error: any) {
+      console.error(
+        "[Mobile useProfile] Failed to fetch profile:",
+        error.message,
+      );
+      if (error.response?.status === 401) {
+        await logout();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, logout]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  return { profile, loading, refetch: fetchProfile };
+}

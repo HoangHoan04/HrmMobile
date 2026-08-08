@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/Colors";
+import { Colors } from "@/constants/common/Colors";
 import { Feather } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { useColorScheme, TouchableOpacity } from "react-native";
@@ -11,6 +11,7 @@ interface InputPasswordProps {
   isDisabled?: boolean;
   isInvalid?: boolean;
   style?: any;
+  leftSlot?: React.ReactNode;
 }
 
 export const InputPassword = ({
@@ -20,6 +21,7 @@ export const InputPassword = ({
   isDisabled,
   isInvalid,
   style,
+  leftSlot,
 }: InputPasswordProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const colorScheme = useColorScheme() ?? "light";
@@ -34,6 +36,7 @@ export const InputPassword = ({
       isInvalid={isInvalid}
       secureTextEntry={!showPassword}
       style={style}
+      leftSlot={leftSlot}
       rightSlot={
         <TouchableOpacity style={{ paddingHorizontal: 8 }} onPress={() => setShowPassword(!showPassword)}>
           <Feather name={showPassword ? "eye" : "eye-off"} size={20} color={theme.textSecondary} />

@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/Colors";
+import { Colors } from "@/constants/common/Colors";
 import { useLanguageStore } from "@/store/useLanguageStore";
 import { Ionicons } from "@expo/vector-icons";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
@@ -51,9 +51,9 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     } else if (route.name === "leave") {
       iconName = isFocused ? "document-text" : "document-text-outline";
       label = t("tabs.leave");
-    } else if (route.name === "notification") {
-      iconName = isFocused ? "notifications" : "notifications-outline";
-      label = t("tabs.notification");
+    } else if (route.name === "salary") {
+      iconName = isFocused ? "cash" : "cash-outline";
+      label = t("tabs.salary");
     } else if (route.name === "profile") {
       iconName = isFocused ? "person" : "person-outline";
       label = t("tabs.profile");
@@ -115,6 +115,7 @@ export default function TabsLayout() {
     <Tabs
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
+        headerShown: false,
         headerStyle: {
           backgroundColor: theme.primary,
         },
@@ -124,23 +125,23 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ title: "Trang Chủ", headerTitle: "Bảng Điều Khiển" }}
+        options={{ title: "Trang Chủ" }}
       />
       <Tabs.Screen
         name="checkin"
-        options={{ title: "Chấm Công", headerTitle: "Bỏ Phiếu Công" }}
+        options={{ title: "Chấm Công" }}
       />
       <Tabs.Screen
         name="leave"
-        options={{ title: "Đơn Từ", headerTitle: "Quản Lý Đơn Từ" }}
+        options={{ title: "Bảng công" }}
       />
       <Tabs.Screen
-        name="notification"
-        options={{ title: "Thông Báo", headerTitle: "Thông Báo Của Tôi" }}
+        name="salary"
+        options={{ title: "Bảng Lương" }}
       />
       <Tabs.Screen
         name="profile"
-        options={{ title: "Cá Nhân", headerTitle: "Hồ Sơ Nhân Viên" }}
+        options={{ title: "Cá Nhân" }}
       />
     </Tabs>
   );

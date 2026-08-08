@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/Colors";
+import { Colors } from "@/constants/common/Colors";
 import React, { useRef, createRef, useState } from "react";
 import { useColorScheme, View, TextInput } from "react-native";
 

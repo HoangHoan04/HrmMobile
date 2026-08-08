@@ -1,5 +1,3 @@
-import { rootApi } from "@/services";
-import { endpoints } from "@/services/endpoint";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 
@@ -13,9 +11,21 @@ export const translations = {
       continue: "Tiếp tục",
       back: "Quay lại",
     },
+    auth: {
+      noAccount: "Chưa có tài khoản? ",
+      contactHr: "Liên hệ HR ngay",
+      modalTitle: "Liên hệ bộ phận Nhân sự",
+      modalSubtitle: "Chúng tôi sẵn sàng hỗ trợ bạn tạo tài khoản",
+      modalBody:
+        "Hệ thống HRDashboard không hỗ trợ tự đăng ký. Tài khoản của bạn được cấp và quản lý bởi bộ phận Nhân sự của công ty.",
+      modalDeptVal: "Phòng Nhân sự",
+      modalHours: "Giờ làm việc",
+      modalHoursVal: "08:00 - 17:30 (Thứ 2 - Thứ 6)",
+      modalClose: "Đóng",
+    },
     login: {
       title: "Đăng nhập",
-      username: "Tên đăng nhập",
+      username: "Tên đăng nhập / Email",
       password: "Mật khẩu",
       rememberMe: "Ghi nhớ đăng nhập",
       forgotPassword: "Quên mật khẩu?",
@@ -41,12 +51,15 @@ export const translations = {
       criteriaLowercase: "Chứa chữ viết thường",
       criteriaNumber: "Chứa chữ số",
       criteriaSpecial: "Chứa ký tự đặc biệt",
+      successTitle: "Đổi mật khẩu thành công",
+      successDesc:
+        "Bạn đã đổi mật khẩu thành công. Vui lòng đăng nhập lại với mật khẩu mới.",
     },
     tabs: {
       home: "Trang Chủ",
-      checkin: "Chấm Công",
-      leave: "Đơn Từ",
-      notification: "Thông Báo",
+      checkin: "Bảng công",
+      leave: "Đơn từ",
+      salary: "Bảng Lương",
       profile: "Cá Nhân",
     },
     notification: {
@@ -91,12 +104,15 @@ export const translations = {
       criteriaLowercase: "Contains lowercase letter",
       criteriaNumber: "Contains a number",
       criteriaSpecial: "Contains a special character",
+      successTitle: "Password Reset Successful",
+      successDesc:
+        "You have successfully changed your password. Please log in again with your new password.",
     },
     tabs: {
       home: "Home",
-      checkin: "Check-in",
+      checkin: "Worksheet",
       leave: "Leave",
-      notification: "Notifications",
+      salary: "Salary",
       profile: "Profile",
     },
     notification: {
@@ -114,7 +130,6 @@ interface LanguageState {
   dynamicTranslations: any;
   setLanguage: (language: Language) => void;
   initLanguage: () => Promise<void>;
-  syncTranslationsFromApi: () => Promise<void>;
   t: (path: string) => string;
 }
 
@@ -155,23 +170,7 @@ export const useLanguageStore = create<LanguageState>((set, get) => ({
         set({ dynamicTranslations: JSON.parse(cachedTranslations) });
       }
     } catch (e) {
-      console.log("Failed to load language", e);
-    }
-  },
-
-  syncTranslationsFromApi: async () => {
-    try {
-      const res = await rootApi.post(endpoints.translations.mobileKeys, {});
-      if (res?.data?.data) {
-        const dynamicTranslations = res.data.data;
-        await AsyncStorage.setItem(
-          "appTranslations",
-          JSON.stringify(dynamicTranslations),
-        );
-        set({ dynamicTranslations });
-      }
-    } catch (e) {
-      console.log("Failed to sync translations", e);
+      //! Handle error if needed
     }
   },
 

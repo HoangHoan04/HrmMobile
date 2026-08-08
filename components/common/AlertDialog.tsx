@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/Colors";
+import { Colors } from "@/constants/common/Colors";
 import React from "react";
 import { useColorScheme, Modal as RNModal, View, TouchableOpacity, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";

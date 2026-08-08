@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/Colors";
+import { Colors } from "@/constants/common/Colors";
 import * as Haptics from "expo-haptics";
 import React, { useRef } from "react";
 import {

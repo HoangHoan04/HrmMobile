@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/Colors";
+import { Colors } from "@/constants/common/Colors";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import {
@@ -20,7 +20,7 @@ export const Modal = ({ isOpen, onClose, children }: any) => {
         activeOpacity={1}
         style={{
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.5)",
+          backgroundColor: "rgba(15, 23, 42, 0.75)",
           justifyContent: "center",
           alignItems: "center",
           padding: 24,

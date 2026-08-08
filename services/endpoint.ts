@@ -1,12 +1,21 @@
 export const endpoints = {
   auth: {
-    login: "/auth/login",
-    forgotPassword: "/auth/forgot-password",
-    resetPassword: "/auth/reset-password",
-    refreshToken: "/auth/refresh-token",
+    login: "/mobile/auth/login",
+    me: "/mobile/auth/me",
+    forgotPassword: "/mobile/auth/forgot-password",
+    resetPassword: "/mobile/auth/reset-password-with-otp",
+    refreshToken: "/mobile/auth/refresh",
+    changePassword: "/mobile/auth/change-password",
+    updateProfile: "/mobile/auth/update-profile",
   },
-  translations: {
-    mobileKeys: "/translations/mobile-keys",
+  upload: {
+    single: "/upload-file/upload-single",
+    multi: "/upload-file/upload-multi",
+    image: "/upload-file/upload-image",
+    document: "/upload-file/upload-document",
+    audio: "/upload-file/upload-audio",
+    catbox: "/upload-file/upload-catbox",
+    s3: "/upload-file/upload-s3",
+    multiS3: "/upload-file/upload-multi-s3",
   },
 };
-

@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/Colors";
+import { Colors } from "@/constants/common/Colors";
 import SliderComponent from "@react-native-community/slider";
 import React from "react";
 import { useColorScheme, View } from "react-native";

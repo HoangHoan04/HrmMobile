@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Colors } from "@/constants/Colors";
+import { Colors } from "@/constants/common/Colors";
 import { Feather } from "@expo/vector-icons";
 import { useColorScheme, View, Text, TouchableOpacity, Modal, FlatList } from "react-native";
 
