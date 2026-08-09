@@ -1,6 +1,6 @@
+import { PickedFile, UploadFileResult, UploadMode } from "@/types/upload";
 import { endpoints } from "./endpoint";
 import { rootApi } from "./rootApi";
-import { PickedFile, UploadFileResult, UploadMode } from "@/types/upload";
 
 const endpointByMode: Record<UploadMode, string> = {
   single: endpoints.upload.single,

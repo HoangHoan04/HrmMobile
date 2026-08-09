@@ -22,6 +22,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       NSAppTransportSecurity: {
         NSAllowsArbitraryLoads: true,
       },
+      NSLocationWhenInUseUsageDescription:
+        'Cho phép HRM Mobile truy cập vị trí để chấm công GPS tại chi nhánh.',
     },
   },
   android: {
@@ -32,6 +34,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: process.env.EXPO_PUBLIC_BUNDLE_ID || 'com.hrm.mobile',
+    usesCleartextTraffic: true,
+    permissions: [
+      'ACCESS_COARSE_LOCATION',
+      'ACCESS_FINE_LOCATION',
+      'INTERNET',
+      'ACCESS_NETWORK_STATE',
+    ],
   },
   web: {
     bundler: 'metro',
@@ -41,6 +50,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     'expo-secure-store',
+    [
+      'expo-location',
+      {
+        locationWhenInUsePermission:
+          'Cho phép HRM Mobile truy cập vị trí để chấm công GPS tại chi nhánh.',
+      },
+    ],
     [
       'expo-image-picker',
       {

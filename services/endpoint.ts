@@ -8,6 +8,17 @@ export const endpoints = {
     changePassword: "/mobile/auth/change-password",
     updateProfile: "/mobile/auth/update-profile",
   },
+  timekeeping: {
+    today: "/mobile/timekeeping/today",
+    checkIn: "/mobile/timekeeping/check-in",
+    checkOut: "/mobile/timekeeping/check-out",
+    month: "/mobile/timekeeping/month",
+  },
+  leave: {
+    create: "/mobile/leave/create",
+    myList: "/mobile/leave/my-list",
+    cancel: "/mobile/leave/cancel",
+  },
   upload: {
     single: "/upload-file/upload-single",
     multi: "/upload-file/upload-multi",

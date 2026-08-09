@@ -2,7 +2,7 @@ import { Button } from "@/components/common/button/Button";
 import { Checkbox } from "@/components/common/input/Checkbox";
 import { Input } from "@/components/common/input/Input";
 import { InputPassword } from "@/components/common/input/InputPassword";
-import { LanguageChange } from "@/components/common/language/LanguageChange";
+import { LanguageChange } from "@/components/layout/LanguageChange";
 import {
   Modal,
   ModalBody,

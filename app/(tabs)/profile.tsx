@@ -1,5 +1,5 @@
-import { Colors } from "@/constants/common/Colors";
 import { ImageUploadButton } from "@/components/common/upload/ImageUploadButton";
+import { Colors } from "@/constants/common/Colors";
 import { useProfile } from "@/hooks";
 import { endpoints } from "@/services/endpoint";
 import { rootApi } from "@/services/rootApi";
@@ -8,20 +8,19 @@ import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useCallback, useEffect, useState } from "react";
-import
-    {
-        ActivityIndicator,
-        Alert,
-        Modal,
-        RefreshControl,
-        ScrollView,
-        StyleSheet,
-        Text,
-        TextInput,
-        TouchableOpacity,
-        useColorScheme,
-        View,
-    } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const AVATAR_URL_KEY = "USER_AVATAR_URL";

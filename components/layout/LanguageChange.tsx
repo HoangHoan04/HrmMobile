@@ -1,8 +1,8 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
-import { Menu } from "../menu/Menu";
 import { useLanguageStore } from "@/store/useLanguageStore";
 import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { Menu } from "../common/menu/Menu";
 
 interface LanguageChangeProps {
   color?: string;
@@ -32,7 +32,12 @@ export const LanguageChange = ({ color = "#FFFFFF" }: LanguageChangeProps) => {
       <Text style={[styles.triggerText, { color }]}>
         {language === "vi" ? "VI" : "EN"}
       </Text>
-      <Ionicons name="chevron-down" size={10} color={color} style={{ marginLeft: 2 }} />
+      <Ionicons
+        name="chevron-down"
+        size={10}
+        color={color}
+        style={{ marginLeft: 2 }}
+      />
     </View>
   );
 

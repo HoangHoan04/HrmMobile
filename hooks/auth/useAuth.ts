@@ -4,6 +4,7 @@ import { endpoints } from "@/services/endpoint";
 import { rootApi } from "@/services/rootApi";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { useCallback, useEffect, useState } from "react";
 
 function extractToken(data: any): string | null {
@@ -22,13 +23,29 @@ export function useLogin() {
   const handleLogin = async () => {
     if (!username || !password) return;
     setLoading(true);
+    const loginUsername = username.trim();
     try {
+      console.log("[Auth] login start", {
+        username: loginUsername,
+        endpoint: endpoints.auth.login,
+        baseURL: rootApi.defaults.baseURL,
+      });
+
       const { data } = await rootApi.post(endpoints.auth.login, {
-        username,
+        username: loginUsername,
         password,
       });
       const token = extractToken(data);
       const refreshToken = data?.refreshToken || data?.RefreshToken;
+      console.log("[Auth] login response", {
+        hasToken: !!token,
+        hasRefresh: !!refreshToken,
+        type: data?.type ?? data?.Type,
+        employeeId: data?.employeeId ?? data?.EmployeeId ?? null,
+        mustChangePassword:
+          data?.mustChangePassword ?? data?.MustChangePassword,
+      });
+
       if (data && token && refreshToken) {
         const user = data.user || {
           username: data.username || data.Username,
@@ -40,14 +57,36 @@ export function useLogin() {
         await login(token, refreshToken, user);
         router.replace(ROUTES.tabs.home);
       } else {
+        console.warn("[Auth] login missing token/refresh", data);
         showToastError("Đăng nhập không thành công");
       }
     } catch (error: any) {
-      const errorMsg =
-        error.response?.data?.message ||
-        error.response?.data ||
-        error.message ||
+      const status = error?.response?.status;
+      const data = error?.response?.data;
+      let errorMsg =
+        (typeof data === "string" && data) ||
+        data?.message ||
+        data?.title ||
+        error?.message ||
         "Đã xảy ra lỗi khi đăng nhập";
+
+      if (!error?.response) {
+        errorMsg =
+          "Không kết nối được API. Kiểm tra API đang chạy (port 5036) và IP LAN. Thử: npx expo start -c";
+      } else if (status >= 500) {
+        errorMsg = "Máy chủ đang lỗi. Vui lòng thử lại sau.";
+      }
+
+      console.error("[Auth] login failed", {
+        username: loginUsername,
+        status: status ?? null,
+        baseURL: rootApi.defaults.baseURL,
+        url: error?.config?.url,
+        code: error?.code,
+        message: error?.message,
+        responseData: data,
+      });
+
       showToastError(
         typeof errorMsg === "string" ? errorMsg : "Đã xảy ra lỗi khi đăng nhập",
       );
@@ -157,6 +196,19 @@ export function useProfile() {
         skipErrorToast: true,
       } as any);
       setProfile(data);
+
+      const employeeId = data?.employeeId || data?.EmployeeId;
+      if (employeeId) {
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser?.employeeId !== employeeId) {
+          const nextUser = { ...currentUser, employeeId };
+          await SecureStore.setItemAsync(
+            "USER_PROFILE",
+            JSON.stringify(nextUser),
+          );
+          useAuthStore.setState({ user: nextUser });
+        }
+      }
     } catch (error: any) {
       console.error(
         "[Mobile useProfile] Failed to fetch profile:",

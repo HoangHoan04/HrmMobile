@@ -123,26 +123,11 @@ export default function TabsLayout() {
         headerTitleAlign: "center",
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{ title: "Trang Chủ" }}
-      />
-      <Tabs.Screen
-        name="checkin"
-        options={{ title: "Chấm Công" }}
-      />
-      <Tabs.Screen
-        name="leave"
-        options={{ title: "Bảng công" }}
-      />
-      <Tabs.Screen
-        name="salary"
-        options={{ title: "Bảng Lương" }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{ title: "Cá Nhân" }}
-      />
+      <Tabs.Screen name="index" options={{ title: "Trang Chủ" }} />
+      <Tabs.Screen name="checkin" options={{ title: "Chấm Công" }} />
+      <Tabs.Screen name="leave" options={{ title: "Bảng công" }} />
+      <Tabs.Screen name="salary" options={{ title: "Bảng Lương" }} />
+      <Tabs.Screen name="profile" options={{ title: "Cá Nhân" }} />
     </Tabs>
   );
 }

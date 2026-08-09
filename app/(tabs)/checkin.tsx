@@ -1,8 +1,11 @@
 import { Colors } from "@/constants/common/Colors";
 import { enumData } from "@/constants/enums/enumData";
+import { useAttendance } from "@/hooks";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   ScrollView,
@@ -25,113 +28,91 @@ interface AttendanceDay {
   note?: string;
 }
 
+function formatClock(value?: string | null): string {
+  if (!value) return "--:--";
+  if (/^\d{1,2}:\d{2}/.test(value) && !value.includes("T")) {
+    const [h, m] = value.split(":");
+    return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "--:--";
+  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+}
+
+function parseWorkDate(value: string): Date {
+  const parts = value.split("-").map(Number);
+  if (parts.length >= 3) {
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  return new Date(value);
+}
+
 export default function CheckInScreen() {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   const insets = useSafeAreaInsets();
+  const { month, loadingMonth, fetchMonth } = useAttendance();
 
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 7, 1));
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [selectedDay, setSelectedDay] = useState<AttendanceDay | null>(null);
   const sheetAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchMonth(currentMonth.getFullYear(), currentMonth.getMonth() + 1).catch(
+        () => undefined,
+      );
+    }, [currentMonth, fetchMonth]),
+  );
+
   const attendanceData = useMemo(() => {
     const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const today = new Date(2026, 7, 5);
-
-    const date = new Date(year, month, 1);
+    const monthIndex = currentMonth.getMonth();
     const data: { [key: string]: AttendanceDay } = {};
 
-    while (date.getMonth() === month) {
+    const date = new Date(year, monthIndex, 1);
+    while (date.getMonth() === monthIndex) {
       const dayStr = date.getDate().toString();
-      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-      const isFuture = date > today;
-      const isToday = date.toDateString() === today.toDateString();
-
-      let dayData: AttendanceDay = {
+      data[dayStr] = {
         date: new Date(date),
         status: "",
         checkIn: "--:--",
         checkOut: "--:--",
         workedHours: 0,
       };
-
-      if (!isFuture && !isWeekend) {
-        if (isToday) {
-          dayData = {
-            date: new Date(date),
-            status: enumData.ATTENDANCE_STATUS.ON_TIME.code,
-            checkIn: "09:25",
-            checkOut: "--:--",
-            workedHours: 0,
-            note: "Hôm nay - Đang làm việc",
-          };
-        } else if (date.getDate() === 3) {
-          dayData = {
-            date: new Date(date),
-            status: enumData.ATTENDANCE_STATUS.LATE.code,
-            checkIn: "08:45",
-            checkOut: "17:30",
-            workedHours: 7.75,
-            note: "Đi muộn 15 phút - Xin phép qua Zalo",
-          };
-        } else if (date.getDate() === 4) {
-          dayData = {
-            date: new Date(date),
-            status: enumData.ATTENDANCE_STATUS.ON_TIME.code,
-            checkIn: "08:25",
-            checkOut: "17:35",
-            workedHours: 8.0,
-            note: "Đúng giờ",
-          };
-        } else {
-          const ran = Math.random();
-          if (ran < 0.75) {
-            dayData = {
-              date: new Date(date),
-              status: enumData.ATTENDANCE_STATUS.ON_TIME.code,
-              checkIn: "08:20",
-              checkOut: "17:30",
-              workedHours: 8.0,
-            };
-          } else if (ran < 0.85) {
-            dayData = {
-              date: new Date(date),
-              status: enumData.ATTENDANCE_STATUS.EARLY.code,
-              checkIn: "08:20",
-              checkOut: "16:45",
-              workedHours: 7.25,
-              note: "Về sớm 45 phút",
-            };
-          } else if (ran < 0.93) {
-            dayData = {
-              date: new Date(date),
-              status: enumData.ATTENDANCE_STATUS.LEAVE.code,
-              checkIn: "--:--",
-              checkOut: "--:--",
-              workedHours: 0,
-              note: "Nghỉ phép năm có lương",
-            };
-          } else {
-            dayData = {
-              date: new Date(date),
-              status: enumData.ATTENDANCE_STATUS.ABSENT.code,
-              checkIn: "--:--",
-              checkOut: "--:--",
-              workedHours: 0,
-              note: "Vắng mặt không lý do",
-            };
-          }
-        }
-      }
-
-      data[dayStr] = dayData;
       date.setDate(date.getDate() + 1);
     }
 
+    (month?.days || []).forEach((day) => {
+      const workDate = parseWorkDate(day.workDate);
+      if (
+        workDate.getFullYear() !== year ||
+        workDate.getMonth() !== monthIndex
+      ) {
+        return;
+      }
+      const dayStr = workDate.getDate().toString();
+      const workedHours =
+        day.workedHours ??
+        (day.workedMinutes
+          ? Math.round((day.workedMinutes / 60) * 100) / 100
+          : 0);
+      data[dayStr] = {
+        date: workDate,
+        status: day.status || "",
+        checkIn: formatClock(day.checkInAt),
+        checkOut: formatClock(day.checkOutAt),
+        workedHours,
+        note: day.note || undefined,
+      };
+    });
+
     return data;
-  }, [currentMonth]);
+  }, [currentMonth, month]);
 
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -152,25 +133,21 @@ export default function CheckInScreen() {
   }, [currentMonth]);
 
   const stats = useMemo(() => {
-    let ontime = 0;
-    let late = 0;
-    let early = 0;
-    let leave = 0;
-    let absent = 0;
-    let workedHours = 0;
-
-    Object.values(attendanceData).forEach((day) => {
-      if (day.status === enumData.ATTENDANCE_STATUS.ON_TIME.code) ontime++;
-      else if (day.status === enumData.ATTENDANCE_STATUS.LATE.code) late++;
-      else if (day.status === enumData.ATTENDANCE_STATUS.EARLY.code) early++;
-      else if (day.status === enumData.ATTENDANCE_STATUS.LEAVE.code) leave++;
-      else if (day.status === enumData.ATTENDANCE_STATUS.ABSENT.code) absent++;
-      workedHours += day.workedHours;
-    });
+    const ontime = month?.onTimeDays ?? 0;
+    const late = month?.lateDays ?? 0;
+    const early = month?.earlyDays ?? 0;
+    const leave = month?.leaveDays ?? 0;
+    const absent = month?.absentDays ?? 0;
+    const workedHours = month?.totalWorkedMinutes
+      ? Math.round((month.totalWorkedMinutes / 60) * 10) / 10
+      : Object.values(attendanceData).reduce(
+          (sum, d) => sum + d.workedHours,
+          0,
+        );
 
     const activeDays = ontime + late + early;
     return { activeDays, ontime, late, early, leave, absent, workedHours };
-  }, [attendanceData]);
+  }, [attendanceData, month]);
 
   const handlePrevMonth = () => {
     setCurrentMonth(
@@ -211,6 +188,14 @@ export default function CheckInScreen() {
   };
 
   const filterCounts = useMemo(() => {
+    if (month) {
+      return {
+        lates: month.lateDays,
+        earlies: month.earlyDays,
+        absents: month.absentDays,
+        leaves: month.leaveDays,
+      };
+    }
     let lates = 0;
     let earlies = 0;
     let absents = 0;
@@ -222,7 +207,7 @@ export default function CheckInScreen() {
       else if (d.status === enumData.ATTENDANCE_STATUS.LEAVE.code) leaves++;
     });
     return { lates, earlies, absents, leaves };
-  }, [attendanceData]);
+  }, [attendanceData, month]);
 
   const targetHours = 88;
   const remainingHours = Math.max(0, targetHours - stats.workedHours);
@@ -476,6 +461,19 @@ export default function CheckInScreen() {
             { backgroundColor: theme.cardBg, borderColor: theme.border },
           ]}
         >
+          {loadingMonth && (
+            <View style={styles.calendarLoading}>
+              <ActivityIndicator size="small" color={theme.primary} />
+              <Text
+                style={[
+                  styles.calendarLoadingText,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                Đang tải bảng công...
+              </Text>
+            </View>
+          )}
           <View style={styles.calendarWeekdays}>
             {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((d, index) => (
               <Text
@@ -503,8 +501,7 @@ export default function CheckInScreen() {
                 date: day,
                 status: null,
               };
-              const isToday =
-                day.toDateString() === new Date(2026, 7, 5).toDateString();
+              const isToday = day.toDateString() === new Date().toDateString();
               const isDimmed =
                 selectedFilter !== "all" && dayData.status !== selectedFilter;
               const statusColor = dayData.status
@@ -1029,6 +1026,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 16,
     marginBottom: 16,
+  },
+  calendarLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  calendarLoadingText: {
+    fontSize: 12,
+    fontWeight: "500",
   },
   calendarWeekdays: {
     flexDirection: "row",

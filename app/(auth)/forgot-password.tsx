@@ -2,7 +2,7 @@ import { Button } from "@/components/common/button/Button";
 import { Input } from "@/components/common/input/Input";
 import { InputOtp } from "@/components/common/input/InputOtp";
 import { InputPassword } from "@/components/common/input/InputPassword";
-import { LanguageChange } from "@/components/common/language/LanguageChange";
+import { LanguageChange } from "@/components/layout/LanguageChange";
 import { Colors } from "@/constants/common/Colors";
 import { ROUTES } from "@/constants/common/routes";
 import { useForgotPassword } from "@/hooks";

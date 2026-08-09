@@ -128,9 +128,17 @@ const initApi = (url?: string, headers = {}) => {
         return Promise.reject(error);
       }
 
+      const responseData = error.response?.data as any;
+      const apiMessage =
+        (typeof responseData === "string" && responseData) ||
+        responseData?.message ||
+        responseData?.title ||
+        null;
+
       showToastError(
-        (error.response?.data as any)?.message ||
-          "Có lỗi xảy ra, vui lòng thử lại!",
+        typeof apiMessage === "string" && apiMessage.trim()
+          ? apiMessage
+          : "Có lỗi xảy ra, vui lòng thử lại!",
       );
 
       return Promise.reject(error);

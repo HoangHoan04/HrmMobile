@@ -1,26 +1,39 @@
 import { Colors } from "@/constants/common/Colors";
 import { getVietnameseDate } from "@/helper/helpers";
-import { useProfile } from "@/hooks";
+import { useAttendance, useProfile } from "@/hooks";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useLanguageStore } from "@/store/useLanguageStore";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useRef, useState } from "react";
-import {
-  Alert,
-  Animated,
-  Dimensions,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  useColorScheme,
-  View,
-} from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useRef, useState } from "react";
+import
+    {
+        ActivityIndicator,
+        Alert,
+        Animated,
+        Dimensions,
+        Modal,
+        ScrollView,
+        StyleSheet,
+        Switch,
+        Text,
+        TouchableOpacity,
+        useColorScheme,
+        View,
+    } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Rect } from "react-native-svg";
+
+function formatClock(value?: string | null): string {
+  if (!value) return "--:--";
+  if (/^\d{1,2}:\d{2}/.test(value) && !value.includes("T")) {
+    const [h, m] = value.split(":");
+    return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "--:--";
+  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+}
 
 const { width } = Dimensions.get("window");
 
@@ -93,10 +106,34 @@ export default function DashboardScreen() {
   );
   const theme = Colors[activeColorScheme];
   const { profile } = useProfile();
+  const {
+    today,
+    loadingToday,
+    punching,
+    error: attendanceError,
+    fetchToday,
+    checkIn,
+    checkOut,
+  } = useAttendance();
 
-  const [isCheckedIn, setIsCheckedIn] = useState(true);
-  const [checkInTime, setCheckInTime] = useState("09:25");
-  const [checkOutTime, setCheckOutTime] = useState("--:--");
+  const checkInTime = formatClock(today?.checkInAt);
+  const checkOutTime = formatClock(today?.checkOutAt);
+  const shiftLabel = useMemo(() => {
+    const start = formatClock(today?.expectedStart);
+    const end = formatClock(today?.expectedEnd);
+    if (start === "--:--" && end === "--:--") return "--:-- - --:--";
+    return `${start} - ${end}`;
+  }, [today?.expectedStart, today?.expectedEnd]);
+  const canCheckIn = !!today?.canCheckIn;
+  const canCheckOut = !!today?.canCheckOut;
+  const showCheckOutAction =
+    canCheckOut || (!canCheckIn && !!today?.checkInAt && !today?.checkOutAt);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchToday().catch(() => undefined);
+    }, [fetchToday]),
+  );
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const drawerAnim = useRef(new Animated.Value(width)).current;
@@ -186,19 +223,27 @@ export default function DashboardScreen() {
     }).start(() => setIsMenuOpen(false));
   };
 
-  const handleAttendancePress = () => {
-    if (isCheckedIn) {
-      const now = new Date();
-      const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
-      setCheckOutTime(timeStr);
-      setIsCheckedIn(false);
-    } else {
-      const now = new Date();
-      const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
-      setCheckInTime(timeStr);
-      setCheckOutTime("--:--");
-      setIsCheckedIn(true);
+  const handleAttendancePress = async () => {
+    if (punching || loadingToday) return;
+    if (today?.onLeave) {
+      Alert.alert(
+        "Nghỉ phép",
+        "Bạn đang trong ngày nghỉ phép đã duyệt, không thể chấm công.",
+      );
+      return;
     }
+    try {
+      if (canCheckOut || showCheckOutAction) {
+        await checkOut();
+      } else if (canCheckIn) {
+        await checkIn();
+      } else {
+        Alert.alert(
+          "Thông báo",
+          "Bạn đã hoàn tất chấm công hôm nay hoặc chưa thể chấm công.",
+        );
+      }
+    } catch {}
   };
 
   const handleLogout = async () => {
@@ -378,7 +423,7 @@ export default function DashboardScreen() {
                 </Text>
               </View>
               <Text style={[styles.infoValue, { color: theme.textMain }]}>
-                08:30 - 17:30
+                {shiftLabel}
               </Text>
             </View>
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -388,13 +433,21 @@ export default function DashboardScreen() {
                 <Ionicons
                   name="checkmark-circle"
                   size={16}
-                  color="#10B981"
+                  color={
+                    checkInTime === "--:--" ? theme.textSecondary : "#10B981"
+                  }
                   style={styles.infoIcon}
                 />
                 <Text
                   style={[
                     styles.infoLabel,
-                    { color: theme.textMain, fontWeight: "600" },
+                    {
+                      color:
+                        checkInTime === "--:--"
+                          ? theme.textSecondary
+                          : theme.textMain,
+                      fontWeight: "600",
+                    },
                   ]}
                 >
                   Vào ca
@@ -403,7 +456,9 @@ export default function DashboardScreen() {
               <Text
                 style={[
                   styles.infoValue,
-                  { color: "#10B981", fontWeight: "700" },
+                  checkInTime === "--:--"
+                    ? styles.grayText
+                    : { color: "#10B981", fontWeight: "700" },
                 ]}
               >
                 {checkInTime}
@@ -450,33 +505,90 @@ export default function DashboardScreen() {
                 {checkOutTime}
               </Text>
             </View>
+
+            {(today?.status || today?.onLeave || today?.branchName) && (
+              <>
+                <View
+                  style={[styles.divider, { backgroundColor: theme.border }]}
+                />
+                <View style={styles.infoRow}>
+                  <View style={styles.infoLeftLabel}>
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={16}
+                      color={theme.textSecondary}
+                      style={styles.infoIcon}
+                    />
+                    <Text
+                      style={[styles.infoLabel, { color: theme.textSecondary }]}
+                    >
+                      Trạng thái
+                    </Text>
+                  </View>
+                  <Text style={[styles.infoValue, { color: theme.textMain }]}>
+                    {today?.onLeave ? "Nghỉ phép" : today?.status || "—"}
+                  </Text>
+                </View>
+              </>
+            )}
+
+            {attendanceError && !loadingToday && (
+              <Text style={styles.attendanceErrorText}>{attendanceError}</Text>
+            )}
           </View>
 
           <View style={styles.actionBtnContainer}>
-            <TouchableOpacity
-              style={[
-                styles.circularActionBtn,
-                isCheckedIn
-                  ? styles.checkOutBtn
-                  : {
-                      backgroundColor: theme.primary,
-                      shadowColor: theme.primary,
-                    },
-              ]}
-              onPress={handleAttendancePress}
-              activeOpacity={0.85}
-            >
-              <View style={styles.circularActionBtnInner}>
-                <Ionicons
-                  name={isCheckedIn ? "finger-print-outline" : "finger-print"}
-                  size={36}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.circularActionBtnText}>
-                  {isCheckedIn ? "RA CA" : "VÀO CA"}
-                </Text>
-              </View>
-            </TouchableOpacity>
+            {loadingToday && !today ? (
+              <ActivityIndicator size="large" color={theme.primary} />
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.circularActionBtn,
+                  showCheckOutAction
+                    ? styles.checkOutBtn
+                    : {
+                        backgroundColor: theme.primary,
+                        shadowColor: theme.primary,
+                      },
+                  (!canCheckIn && !canCheckOut && !showCheckOutAction) ||
+                  punching
+                    ? { opacity: 0.55 }
+                    : null,
+                ]}
+                onPress={handleAttendancePress}
+                activeOpacity={0.85}
+                disabled={
+                  punching ||
+                  loadingToday ||
+                  (!canCheckIn && !canCheckOut && !showCheckOutAction)
+                }
+              >
+                <View style={styles.circularActionBtnInner}>
+                  {punching ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Ionicons
+                      name={
+                        showCheckOutAction
+                          ? "finger-print-outline"
+                          : "finger-print"
+                      }
+                      size={36}
+                      color="#FFFFFF"
+                    />
+                  )}
+                  <Text style={styles.circularActionBtnText}>
+                    {punching
+                      ? "..."
+                      : showCheckOutAction
+                        ? "RA CA"
+                        : canCheckIn
+                          ? "VÀO CA"
+                          : "XONG"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -1010,6 +1122,13 @@ const styles = StyleSheet.create({
   grayText: {
     color: "#9CA3AF",
     fontWeight: "500",
+  },
+  attendanceErrorText: {
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#EF4444",
+    textAlign: "center",
   },
   divider: {
     height: 1,
