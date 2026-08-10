@@ -1,4 +1,6 @@
 import { Colors } from "@/constants/common/Colors";
+import { useThemeStore } from "@/store/themeStore";
+
 import { enumData } from "@/constants/enums/enumData";
 import { useAttendance } from "@/hooks";
 import { Ionicons } from "@expo/vector-icons";
@@ -48,7 +50,7 @@ function parseWorkDate(value: string): Date {
 }
 
 export default function CheckInScreen() {
-  const colorScheme = useColorScheme() ?? "light";
+  const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
   const insets = useSafeAreaInsets();
   const { month, loadingMonth, fetchMonth } = useAttendance();

@@ -1,5 +1,7 @@
-import { Badge, BadgeText } from "@/components/common/Badge";
+import { Badge, BadgeText } from "@/components/ui/Badge";
 import { Colors } from "@/constants/common/Colors";
+import { useThemeStore } from "@/store/themeStore";
+
 import { enumData } from "@/constants/enums/enumData";
 import { RegisterDayOffDto, useLeave } from "@/hooks";
 import { Ionicons } from "@expo/vector-icons";
@@ -104,7 +106,7 @@ function mapLeaveDto(dto: RegisterDayOffDto): LeaveRequest {
 }
 
 export default function LeaveScreen() {
-  const colorScheme = useColorScheme() ?? "light";
+  const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
   const insets = useSafeAreaInsets();
   const {

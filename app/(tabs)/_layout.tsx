@@ -1,27 +1,26 @@
 import { Colors } from "@/constants/common/Colors";
-import { useLanguageStore } from "@/store/useLanguageStore";
+import { useLanguageStore } from "@/store/languageStore";
+import { useThemeStore } from "@/store/themeStore";
 import { Ionicons } from "@expo/vector-icons";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import * as Haptics from "expo-haptics";
 import { Tabs } from "expo-router";
-import React from "react";
-import {
-  Dimensions,
-  Pressable,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from "react-native";
+import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const colorScheme = useColorScheme() ?? "light";
+  const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
   const insets = useSafeAreaInsets();
   const { t } = useLanguageStore();
+
+  const isDark = colorScheme === "dark";
+  const tabBarBg = isDark ? "#111214" : "#FFFFFF";
+  const activeBtn = isDark ? "#FFFFFF" : "#111214";
+  const inactiveTextColor = isDark ? "rgba(255, 255, 255, 0.4)" : "#6B7280";
+  const borderColor = isDark ? "transparent" : "#E5E7EB";
 
   const renderTabButton = (route: any, indexInState: number) => {
     const isFocused = state.index === indexInState;
@@ -66,20 +65,22 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         style={[
           styles.tabButton,
           isFocused
-            ? [styles.tabButtonActive, { backgroundColor: "#FFFFFF" }]
+            ? [
+                styles.tabButtonActive,
+                { borderColor: activeBtn, borderWidth: 3 },
+              ]
             : styles.tabButtonInactive,
         ]}
       >
         <Ionicons
           name={iconName}
           size={20}
-          color={isFocused ? "#111214" : "rgba(255, 255, 255, 0.4)"}
+          color={isFocused ? activeBtn : inactiveTextColor}
         />
-
         {isFocused && (
           <Text
             numberOfLines={1}
-            style={[styles.tabLabel, { color: "#111214" }]}
+            style={[styles.tabLabel, { color: activeBtn }]}
           >
             {label}
           </Text>
@@ -96,8 +97,10 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         style={[
           styles.tabBarContainer,
           {
-            backgroundColor: "#111214",
-            shadowColor: "#000",
+            backgroundColor: tabBarBg,
+            borderColor: borderColor,
+            borderWidth: isDark ? 0 : 1,
+            shadowColor: isDark ? "#000" : "#999",
           },
         ]}
       >
@@ -108,7 +111,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
-  const colorScheme = useColorScheme() ?? "light";
+  const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
 
   return (

@@ -1,5 +1,5 @@
-import { useAuthStore } from "@/store/useAuthStore";
-import { useLanguageStore } from "@/store/useLanguageStore";
+import { useAuthStore } from "@/store/authStore";
+import { useLanguageStore } from "@/store/languageStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useRef, useState } from "react";

@@ -1,0 +1,116 @@
+import moment from "moment";
+
+export function formatNumericInput(val: any) {
+  const text = val?.toString() || "";
+  if (!text) return "";
+  const withDot = text.replace(/,/g, ".");
+  if (withDot.endsWith(".")) {
+    const beforeDot = withDot.slice(0, -1);
+    if (!beforeDot.includes(".")) {
+      return withDot;
+    }
+  }
+  const sanitized = withDot.replace(/[^\d.-]/g, "");
+  const parts = sanitized.split(".");
+  if (parts.length > 2) {
+    return parts[0] + "." + parts.slice(1).join("");
+  }
+  if (sanitized.startsWith("-")) {
+    return "-" + sanitized.substring(1).replace(/-/g, "");
+  }
+  return sanitized;
+}
+
+export function formatDateTime(text: Date | string | number | undefined) {
+  if (!text) return "";
+  return moment(text).format("HH:mm DD/MM/YY");
+}
+
+export function formatDate(
+  text: Date | string | number | undefined,
+  format?: string,
+) {
+  if (!text) return "";
+  return moment(text).format(format ? format : "DD/MM/YY");
+}
+
+export function formatMoneyD(money?: number | string) {
+  if (!!money || money == 0) {
+    if (money && money.toString().length > 0) {
+      return money.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.") + "đ";
+    } else {
+      return money + "đ";
+    }
+  } else {
+    return "0đ";
+  }
+}
+
+export function formatMoneyVND(money: number) {
+  if (!!money || money == 0) {
+    if (money && money.toString().length > 0) {
+      return (
+        money.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,") + " VND"
+      );
+    } else {
+      return money + " VND";
+    }
+  } else {
+    return "0 VND";
+  }
+}
+
+export const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  }).format(value);
+};
+
+export const formatNumber = (value: number | string, useEn?: boolean) => {
+  if (value === null || value === undefined || value === "") return "";
+  let raw = value.toString().trim();
+  if (!useEn) {
+    raw = raw.replace(",", ".");
+  }
+  const num = Number(raw);
+  if (isNaN(num)) return value as any;
+
+  const hasFraction = Math.abs(num % 1) > 0;
+
+  return new Intl.NumberFormat(useEn ? "en-US" : "vi-VN", {
+    minimumFractionDigits: hasFraction ? 2 : 0,
+    maximumFractionDigits: hasFraction ? 2 : 0,
+  }).format(num);
+};
+
+export const checkAccountNameBankValid = (accountName: string) => {
+  const regex = /^[A-Z\s]+$/;
+  return regex.test(accountName);
+};
+
+export const checkAccountNumberBankValid = (accountName: string) => {
+  const regex = /^[A-Z0-9]+$/;
+  return regex.test(accountName);
+};
+
+export const getVietnameseDate = (): string => {
+  const days = [
+    "Chủ nhật",
+    "Thứ hai",
+    "Thứ ba",
+    "Thứ tư",
+    "Thứ năm",
+    "Thứ sáu",
+    "Thứ bảy",
+  ];
+  const now = new Date();
+  const dayName = days[now.getDay()];
+  const date = now.getDate().toString().padStart(2, "0");
+  const month = (now.getMonth() + 1).toString().padStart(2, "0");
+  return `${dayName}, ngày ${date} Tháng ${month}`;
+};
+
+export const getRandomNumber = (min: number, max: number): number => {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+};

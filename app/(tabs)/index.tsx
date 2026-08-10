@@ -1,8 +1,9 @@
 import { Colors } from "@/constants/common/Colors";
-import { getVietnameseDate } from "@/helper/helpers";
+import { getVietnameseDate } from "@/utils/formatters";
 import { useAttendance, useProfile } from "@/hooks";
-import { useAuthStore } from "@/store/useAuthStore";
-import { useLanguageStore } from "@/store/useLanguageStore";
+import { useAuthStore } from "@/store/authStore";
+import { useLanguageStore } from "@/store/languageStore";
+import { useThemeStore } from "@/store/themeStore";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -99,11 +100,8 @@ export default function DashboardScreen() {
   const logout = useAuthStore((s) => s.logout);
   const { language, setLanguage } = useLanguageStore();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme() ?? "light";
-
-  const [activeColorScheme, setActiveColorScheme] = useState<"light" | "dark">(
-    colorScheme,
-  );
+  const activeColorScheme = useThemeStore((s) => s.theme);
+  const setTheme = useThemeStore((s) => s.setTheme);
   const theme = Colors[activeColorScheme];
   const { profile } = useProfile();
   const {
@@ -142,7 +140,7 @@ export default function DashboardScreen() {
   const [notifPerm, setNotifPerm] = useState(true);
   const [cameraPerm, setCameraPerm] = useState(true);
 
-  const [isDarkMode, setIsDarkMode] = useState(colorScheme === "dark");
+  const isDarkMode = activeColorScheme === "dark";
 
   const handleLocationToggle = (val: boolean) => {
     if (val) {
@@ -202,8 +200,7 @@ export default function DashboardScreen() {
   };
 
   const handleDarkModeToggle = (val: boolean) => {
-    setIsDarkMode(val);
-    setActiveColorScheme(val ? "dark" : "light");
+    setTheme(val ? "dark" : "light");
   };
 
   const openDrawer = () => {

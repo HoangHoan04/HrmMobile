@@ -1,9 +1,11 @@
-import { ImageUploadButton } from "@/components/common/upload/ImageUploadButton";
+import { ImageUploadButton } from "@/components/ui/upload/ImageUploadButton";
 import { Colors } from "@/constants/common/Colors";
+import { useThemeStore } from "@/store/themeStore";
+
 import { useProfile } from "@/hooks";
-import { endpoints } from "@/services/endpoint";
-import { rootApi } from "@/services/rootApi";
-import { useAuthStore } from "@/store/useAuthStore";
+import { endpoints } from "@/services/api/endpoints";
+import { rootApi } from "@/services/api/rootApi";
+import { useAuthStore } from "@/store/authStore";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -30,7 +32,7 @@ export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme() ?? "light";
+  const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
 
   const { profile, loading, refetch } = useProfile();

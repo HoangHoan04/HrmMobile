@@ -1,19 +1,19 @@
-import { Button } from "@/components/common/button/Button";
-import { Checkbox } from "@/components/common/input/Checkbox";
-import { Input } from "@/components/common/input/Input";
-import { InputPassword } from "@/components/common/input/InputPassword";
-import { LanguageChange } from "@/components/layout/LanguageChange";
+import { Button } from "@/components/ui/button/Button";
+import { Checkbox } from "@/components/ui/input/Checkbox";
+import { Input } from "@/components/ui/input/Input";
+import { InputPassword } from "@/components/ui/input/InputPassword";
+import { LanguageChange } from "@/components/common/LanguageChange";
 import {
   Modal,
   ModalBody,
   ModalContent,
   ModalHeader,
-} from "@/components/common/Modal";
+} from "@/components/ui/Modal";
 import { Colors } from "@/constants/common/Colors";
 import { ROUTES } from "@/constants/common/routes";
 import { useLogin } from "@/hooks";
-import { useLanguageStore } from "@/store/useLanguageStore";
-import { keyboardAvoidingBehavior } from "@/utils/utils";
+import { useLanguageStore } from "@/store/languageStore";
+import { keyboardAvoidingBehavior } from "@/utils/helpers";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";

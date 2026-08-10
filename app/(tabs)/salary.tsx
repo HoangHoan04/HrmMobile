@@ -1,4 +1,6 @@
 import { Colors } from "@/constants/common/Colors";
+import { useThemeStore } from "@/store/themeStore";
+
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
@@ -122,7 +124,7 @@ function formatMoney(n: number) {
 }
 
 export default function SalaryScreen() {
-  const colorScheme = useColorScheme() ?? "light";
+  const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
   const insets = useSafeAreaInsets();
   const [currentPeriodId, setCurrentPeriodId] = useState(MOCK_PERIODS[0].id);

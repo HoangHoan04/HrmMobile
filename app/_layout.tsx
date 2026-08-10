@@ -1,12 +1,17 @@
-import { ToastContainer } from "@/components/common/Toast";
+import { ToastContainer } from "@/components/ui/Toast";
 import { Colors } from "@/constants/common/Colors";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/authStore";
 import { Feather } from "@expo/vector-icons";
 import { Slot, useRouter, useSegments } from "expo-router";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Text, useColorScheme, View } from "react-native";
 
-import { useLanguageStore } from "@/store/useLanguageStore";
+import { useLanguageStore } from "@/store/languageStore";
+import { useThemeStore } from "@/store/themeStore";
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
 
 export default function RootLayout() {
   const isInitialized = useAuthStore((s) => s.isInitialized);
@@ -15,6 +20,7 @@ export default function RootLayout() {
   const initializeAuth = useAuthStore((s) => s.initializeAuth);
 
   const initLanguage = useLanguageStore((s) => s.initLanguage);
+  const initTheme = useThemeStore((s) => s.initTheme);
 
   const segments = useSegments();
   const router = useRouter();
@@ -25,6 +31,7 @@ export default function RootLayout() {
   useEffect(() => {
     initializeAuth();
     initLanguage();
+    initTheme();
   }, []);
 
   useEffect(() => {
@@ -107,9 +114,9 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <QueryClientProvider client={queryClient}>
       <Slot />
       <ToastContainer />
-    </>
+    </QueryClientProvider>
   );
 }
