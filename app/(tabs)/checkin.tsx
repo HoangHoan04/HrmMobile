@@ -1,26 +1,35 @@
-import {
-  Calendar,
-  type CalendarDayMeta,
-} from "@/components/ui/calendar";
 import { DrawerMenuButton } from "@/components/layout/drawer";
+import { Calendar, type CalendarDayMeta } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input/Input";
+import { Textarea } from "@/components/ui/input/Textarea";
 import { Colors } from "@/constants/common/Colors";
-import { enumData } from "@/constants/enums/enumData";
 import {
   getAttendanceStatusBg,
   getAttendanceStatusColor,
   getAttendanceStatusLabelKey,
   resolveAttendanceStatus,
 } from "@/constants/enums/attendanceStatus";
+import { enumData } from "@/constants/enums/enumData";
+import type { AttendanceComplaintType } from "@/features/attendance/types";
 import { formatClock, parseWorkDate } from "@/features/common";
-import { useAttendance } from "@/hooks";
+import { showToastError } from "@/helper/ToastEventEmitter";
+import { useAttendance, useAttendanceComplaint, usePermissions } from "@/hooks";
 import { useLanguageStore } from "@/store/languageStore";
 import { useThemeStore } from "@/store/themeStore";
+import {
+  clockOrEmpty,
+  parseHhMmToTimeSpan,
+  toDateOnly,
+} from "@/utils/formatters";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Animated,
-  Dimensions,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,8 +37,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface AttendanceDay {
   date: Date;
@@ -40,12 +47,23 @@ interface AttendanceDay {
   note?: string;
 }
 
+function suggestComplaintType(day: AttendanceDay): AttendanceComplaintType {
+  const hasIn = !!day.checkIn && day.checkIn !== "--:--";
+  const hasOut = !!day.checkOut && day.checkOut !== "--:--";
+  if (!hasIn && !hasOut) return "FORGOT_BOTH";
+  if (!hasIn) return "FORGOT_CHECK_IN";
+  if (!hasOut) return "FORGOT_CHECK_OUT";
+  return "WRONG_TIME";
+}
+
 export default function CheckInScreen() {
   const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
   const { t, language } = useLanguageStore();
   const insets = useSafeAreaInsets();
-  const { month, loadingMonth, fetchMonth } = useAttendance();
+  const { month, loadingMonth, fetchMonth, today } = useAttendance();
+  const { createComplaint, creating } = useAttendanceComplaint();
+  const { canCreateComplaint } = usePermissions();
 
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
@@ -53,7 +71,13 @@ export default function CheckInScreen() {
   });
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [selectedDay, setSelectedDay] = useState<AttendanceDay | null>(null);
-  const sheetAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [complaintOpen, setComplaintOpen] = useState(false);
+  const [complaintType, setComplaintType] =
+    useState<AttendanceComplaintType>("FORGOT_BOTH");
+  const [requestedCheckIn, setRequestedCheckIn] = useState("");
+  const [requestedCheckOut, setRequestedCheckOut] = useState("");
+  const [complaintReason, setComplaintReason] = useState("");
 
   useFocusEffect(
     useCallback(() => {
@@ -110,14 +134,18 @@ export default function CheckInScreen() {
 
   const calendarDayMeta = useMemo(() => {
     const meta: Record<number, CalendarDayMeta> = {};
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
     Object.values(attendanceData).forEach((day) => {
       const dayNum = day.date.getDate();
       const statusMeta = resolveAttendanceStatus(day.status);
       meta[dayNum] = {
         markerColor: statusMeta?.color || null,
         dimmed:
-          selectedFilter !== "all" && day.status !== selectedFilter,
-        disabled: !day.status || !statusMeta,
+          selectedFilter !== "all" &&
+          !!day.status &&
+          day.status !== selectedFilter,
+        disabled: day.date > endOfToday,
         data: day,
       };
     });
@@ -130,35 +158,144 @@ export default function CheckInScreen() {
     const early = month?.earlyDays ?? 0;
     const leave = month?.leaveDays ?? 0;
     const absent = month?.absentDays ?? 0;
-    const workedHours = month?.totalWorkedMinutes
-      ? Math.round((month.totalWorkedMinutes / 60) * 10) / 10
-      : Object.values(attendanceData).reduce(
-          (sum, d) => sum + d.workedHours,
-          0,
-        );
+
+    const fromMonthMinutes =
+      typeof month?.totalWorkedMinutes === "number"
+        ? month.totalWorkedMinutes
+        : Object.values(attendanceData).reduce(
+            (sum, d) => sum + Math.round((d.workedHours || 0) * 60),
+            0,
+          );
+
+    const todayKey = today?.workDate ? parseWorkDate(today.workDate) : null;
+    const viewingSameMonth =
+      !!todayKey &&
+      todayKey.getFullYear() === currentMonth.getFullYear() &&
+      todayKey.getMonth() === currentMonth.getMonth();
+    const todayMinutes = viewingSameMonth ? (today?.workedMinutes ?? 0) : 0;
+    const todayAlreadyInMonth = viewingSameMonth
+      ? (month?.days || []).some((d) => {
+          const wd = parseWorkDate(d.workDate);
+          return (
+            wd.getFullYear() === todayKey!.getFullYear() &&
+            wd.getMonth() === todayKey!.getMonth() &&
+            wd.getDate() === todayKey!.getDate() &&
+            (d.workedMinutes ?? 0) > 0
+          );
+        })
+      : false;
+
+    const totalMinutes =
+      fromMonthMinutes + (todayAlreadyInMonth ? 0 : todayMinutes);
+    const workedHours = Math.round((totalMinutes / 60) * 10) / 10;
 
     const activeDays = ontime + late + early;
-    return { activeDays, ontime, late, early, leave, absent, workedHours };
-  }, [attendanceData, month]);
+    return {
+      activeDays,
+      ontime,
+      late,
+      early,
+      leave,
+      absent,
+      workedHours,
+      totalMinutes,
+    };
+  }, [attendanceData, month, today, currentMonth]);
 
-  const handleDayPress = (day: Date, meta?: CalendarDayMeta) => {
+  const handleDayPress = (_day: Date, meta?: CalendarDayMeta) => {
     const dayData = (meta?.data as AttendanceDay | undefined) || null;
-    if (!dayData?.status) return;
+    if (!dayData) return;
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    if (dayData.date > endOfToday) return;
+
     setSelectedDay(dayData);
-    Animated.spring(sheetAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      damping: 18,
-    }).start();
+    setSheetVisible(true);
+    setComplaintOpen(false);
+    setComplaintType(suggestComplaintType(dayData));
+    setRequestedCheckIn(clockOrEmpty(dayData.checkIn));
+    setRequestedCheckOut(clockOrEmpty(dayData.checkOut));
+    setComplaintReason("");
   };
 
   const closeBottomSheet = () => {
-    Animated.timing(sheetAnim, {
-      toValue: SCREEN_HEIGHT,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => setSelectedDay(null));
+    setSheetVisible(false);
   };
+
+  const clearSheetState = useCallback(() => {
+    setSelectedDay(null);
+    setComplaintOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (sheetVisible) return;
+    if (!selectedDay) return;
+    const timer = setTimeout(
+      clearSheetState,
+      Platform.OS === "ios" ? 320 : 250,
+    );
+    return () => clearTimeout(timer);
+  }, [sheetVisible, selectedDay, clearSheetState]);
+
+  const openComplaintForm = () => {
+    if (!selectedDay) return;
+    setComplaintType(suggestComplaintType(selectedDay));
+    setRequestedCheckIn(clockOrEmpty(selectedDay.checkIn));
+    setRequestedCheckOut(clockOrEmpty(selectedDay.checkOut));
+    setComplaintReason("");
+    setComplaintOpen(true);
+  };
+
+  const needsCheckIn =
+    complaintType === "FORGOT_CHECK_IN" ||
+    complaintType === "FORGOT_BOTH" ||
+    complaintType === "WRONG_TIME" ||
+    complaintType === "OTHER";
+  const needsCheckOut =
+    complaintType === "FORGOT_CHECK_OUT" ||
+    complaintType === "FORGOT_BOTH" ||
+    complaintType === "WRONG_TIME" ||
+    complaintType === "OTHER";
+
+  const submitComplaint = async () => {
+    if (!selectedDay) return;
+    const reason = complaintReason.trim();
+    if (!reason) {
+      showToastError(t("checkin.complaint.reasonRequired"));
+      return;
+    }
+
+    const checkInSpan = requestedCheckIn.trim()
+      ? parseHhMmToTimeSpan(requestedCheckIn)
+      : null;
+    const checkOutSpan = requestedCheckOut.trim()
+      ? parseHhMmToTimeSpan(requestedCheckOut)
+      : null;
+
+    if (requestedCheckIn.trim() && !checkInSpan) {
+      showToastError(t("checkin.complaint.invalidTime"));
+      return;
+    }
+    if (requestedCheckOut.trim() && !checkOutSpan) {
+      showToastError(t("checkin.complaint.invalidTime"));
+      return;
+    }
+
+    try {
+      await createComplaint({
+        workDate: toDateOnly(selectedDay.date),
+        complaintType,
+        requestedCheckInTime: checkInSpan,
+        requestedCheckOutTime: checkOutSpan,
+        reason,
+      });
+      closeBottomSheet();
+    } catch {
+      //! toast already shown
+    }
+  };
+
+  const complaintTypes = Object.values(enumData.ATTENDANCE_COMPLAINT_TYPE);
 
   const filterCounts = useMemo(() => {
     if (month) {
@@ -183,7 +320,10 @@ export default function CheckInScreen() {
   }, [attendanceData, month]);
 
   const targetHours = useMemo(() => {
-    if (month?.expectedWorkedMinutes != null && month.expectedWorkedMinutes > 0) {
+    if (
+      month?.expectedWorkedMinutes != null &&
+      month.expectedWorkedMinutes > 0
+    ) {
       return Math.round((month.expectedWorkedMinutes / 60) * 10) / 10;
     }
     return 0;
@@ -238,12 +378,18 @@ export default function CheckInScreen() {
             />
           </View>
           <Text style={[styles.overviewHours, { color: theme.primary }]}>
-            {stats.workedHours.toFixed(1)}{" "}
-            {targetHours > 0 && (
-              <Text style={[styles.overviewMax, { color: theme.textSecondary }]}>
+            {stats.totalMinutes > 0 && stats.workedHours < 0.05
+              ? `${stats.totalMinutes} ${t("checkin.minutesUnit")}`
+              : `${stats.workedHours.toFixed(1)}`}
+            {targetHours > 0 &&
+            !(stats.totalMinutes > 0 && stats.workedHours < 0.05) ? (
+              <Text
+                style={[styles.overviewMax, { color: theme.textSecondary }]}
+              >
+                {" "}
                 {t("checkin.hoursOfTotal", { n: targetHours })}
               </Text>
-            )}
+            ) : null}
           </Text>
 
           <View
@@ -624,180 +770,437 @@ export default function CheckInScreen() {
         </View>
       </ScrollView>
 
-      {selectedDay && (
-        <Animated.View
-          style={[
-            styles.bottomSheetContainer,
-            {
-              transform: [{ translateY: sheetAnim }],
-              backgroundColor: theme.cardBg,
-              borderTopColor: theme.border,
-            },
-          ]}
-        >
-          <View style={styles.sheetGrabberContainer}>
-            <View
-              style={[styles.sheetGrabber, { backgroundColor: theme.border }]}
-            />
-          </View>
-
-          <View style={styles.sheetHeader}>
-            <Text style={[styles.sheetTitle, { color: theme.textMain }]}>
-              {selectedDay.date.toLocaleDateString(language === "en" ? "en-US" : "vi-VN", {
-                weekday: "long",
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-              })}
-            </Text>
-            <TouchableOpacity
-              onPress={closeBottomSheet}
-              style={styles.sheetCloseBtn}
+      <Modal
+        visible={sheetVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeBottomSheet}
+        onDismiss={clearSheetState}
+        statusBarTranslucent
+      >
+        {selectedDay ? (
+          <Pressable style={styles.modalBackdrop} onPress={closeBottomSheet}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              style={styles.modalKeyboard}
             >
-              <Ionicons name="close" size={22} color={theme.textMain} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.sheetBody}>
-            {selectedDay.status && !!resolveAttendanceStatus(selectedDay.status) && (
-              <View
+              <Pressable
                 style={[
-                  styles.sheetStatusBadge,
+                  styles.bottomSheetContainer,
                   {
-                    backgroundColor:
-                      getAttendanceStatusBg(selectedDay.status) ?? undefined,
+                    backgroundColor: theme.cardBg,
+                    borderTopColor: theme.border,
+                    paddingBottom: Math.max(insets.bottom, 16) + 12,
                   },
                 ]}
+                onPress={(e) => e.stopPropagation()}
               >
-                <View
-                  style={[
-                    styles.legendDot,
-                    {
-                      backgroundColor:
-                        getAttendanceStatusColor(selectedDay.status) ??
-                        undefined,
-                      marginRight: 6,
-                    },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.sheetStatusText,
-                    {
-                      color:
-                        getAttendanceStatusColor(selectedDay.status) ??
-                        undefined,
-                    },
-                  ]}
+                <View style={styles.sheetGrabberContainer}>
+                  <View
+                    style={[
+                      styles.sheetGrabber,
+                      { backgroundColor: theme.border },
+                    ]}
+                  />
+                </View>
+
+                <View style={styles.sheetHeader}>
+                  <Text style={[styles.sheetTitle, { color: theme.textMain }]}>
+                    {complaintOpen
+                      ? t("checkin.complaint.title")
+                      : selectedDay.date.toLocaleDateString(
+                          language === "en" ? "en-US" : "vi-VN",
+                          {
+                            weekday: "long",
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          },
+                        )}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={closeBottomSheet}
+                    style={styles.sheetCloseBtn}
+                  >
+                    <Ionicons name="close" size={22} color={theme.textMain} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                  style={styles.sheetScroll}
+                  contentContainerStyle={styles.sheetBody}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
                 >
-                  {t(getAttendanceStatusLabelKey(selectedDay.status) ?? "")}
-                </Text>
-              </View>
-            )}
+                  {!complaintOpen ? (
+                    <>
+                      {selectedDay.status &&
+                      !!resolveAttendanceStatus(selectedDay.status) ? (
+                        <View
+                          style={[
+                            styles.sheetStatusBadge,
+                            {
+                              backgroundColor:
+                                getAttendanceStatusBg(selectedDay.status) ??
+                                undefined,
+                            },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.legendDot,
+                              {
+                                backgroundColor:
+                                  getAttendanceStatusColor(
+                                    selectedDay.status,
+                                  ) ?? undefined,
+                                marginRight: 6,
+                              },
+                            ]}
+                          />
+                          <Text
+                            style={[
+                              styles.sheetStatusText,
+                              {
+                                color:
+                                  getAttendanceStatusColor(
+                                    selectedDay.status,
+                                  ) ?? undefined,
+                              },
+                            ]}
+                          >
+                            {t(
+                              getAttendanceStatusLabelKey(selectedDay.status) ??
+                                "",
+                            )}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text
+                          style={[
+                            styles.sheetHint,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {t("checkin.noPunchYet")}
+                        </Text>
+                      )}
 
-            <View
-              style={[
-                styles.sheetTimeRow,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <View style={styles.sheetTimeBlock}>
-                <Ionicons name="log-in-outline" size={18} color="#10B981" />
-                <View style={{ marginLeft: 8 }}>
-                  <Text
-                    style={[
-                      styles.sheetTimeLabel,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    {t("checkin.checkInTime")}
-                  </Text>
-                  <Text
-                    style={[styles.sheetTimeValue, { color: theme.textMain }]}
-                  >
-                    {selectedDay.checkIn}
-                  </Text>
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.sheetTimeDivider,
-                  { backgroundColor: theme.border },
-                ]}
-              />
-              <View style={styles.sheetTimeBlock}>
-                <Ionicons name="log-out-outline" size={18} color="#EF4444" />
-                <View style={{ marginLeft: 8 }}>
-                  <Text
-                    style={[
-                      styles.sheetTimeLabel,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    {t("checkin.checkOutTime")}
-                  </Text>
-                  <Text
-                    style={[styles.sheetTimeValue, { color: theme.textMain }]}
-                  >
-                    {selectedDay.checkOut}
-                  </Text>
-                </View>
-              </View>
-            </View>
+                      <View
+                        style={[
+                          styles.sheetTimeRow,
+                          {
+                            backgroundColor: theme.background,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                      >
+                        <View style={styles.sheetTimeBlock}>
+                          <Ionicons
+                            name="log-in-outline"
+                            size={18}
+                            color="#10B981"
+                          />
+                          <View style={{ marginLeft: 8 }}>
+                            <Text
+                              style={[
+                                styles.sheetTimeLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {t("checkin.checkInTime")}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.sheetTimeValue,
+                                { color: theme.textMain },
+                              ]}
+                            >
+                              {selectedDay.checkIn}
+                            </Text>
+                          </View>
+                        </View>
+                        <View
+                          style={[
+                            styles.sheetTimeDivider,
+                            { backgroundColor: theme.border },
+                          ]}
+                        />
+                        <View style={styles.sheetTimeBlock}>
+                          <Ionicons
+                            name="log-out-outline"
+                            size={18}
+                            color="#EF4444"
+                          />
+                          <View style={{ marginLeft: 8 }}>
+                            <Text
+                              style={[
+                                styles.sheetTimeLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {t("checkin.checkOutTime")}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.sheetTimeValue,
+                                { color: theme.textMain },
+                              ]}
+                            >
+                              {selectedDay.checkOut}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
 
-            <View style={styles.sheetDetailRow}>
-              <Text
-                style={[
-                  styles.sheetDetailLabel,
-                  { color: theme.textSecondary },
-                ]}
-              >
-                {t("checkin.dayWorkedHours")}
-              </Text>
-              <Text
-                style={[styles.sheetDetailValue, { color: theme.textMain }]}
-              >
-                {t("checkin.hoursValue", { n: selectedDay.workedHours.toFixed(2) })}
-              </Text>
-            </View>
+                      <View style={styles.sheetDetailRow}>
+                        <Text
+                          style={[
+                            styles.sheetDetailLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {t("checkin.dayWorkedHours")}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.sheetDetailValue,
+                            { color: theme.textMain },
+                          ]}
+                        >
+                          {t("checkin.hoursValue", {
+                            n: selectedDay.workedHours.toFixed(2),
+                          })}
+                        </Text>
+                      </View>
 
-            {selectedDay.note && (
-              <View
-                style={[
-                  styles.sheetNoteBlock,
-                  {
-                    backgroundColor: theme.background,
-                    borderColor: theme.border,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="document-text-outline"
-                  size={16}
-                  color={theme.textSecondary}
-                  style={{ marginTop: 2 }}
-                />
-                <Text style={[styles.sheetNoteText, { color: theme.textMain }]}>
-                  {selectedDay.note}
-                </Text>
-              </View>
-            )}
+                      {selectedDay.note ? (
+                        <View
+                          style={[
+                            styles.sheetNoteBlock,
+                            {
+                              backgroundColor: theme.background,
+                              borderColor: theme.border,
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name="document-text-outline"
+                            size={16}
+                            color={theme.textSecondary}
+                            style={{ marginTop: 2 }}
+                          />
+                          <Text
+                            style={[
+                              styles.sheetNoteText,
+                              { color: theme.textMain },
+                            ]}
+                          >
+                            {selectedDay.note}
+                          </Text>
+                        </View>
+                      ) : null}
 
-            <TouchableOpacity
-              style={[
-                styles.sheetActionButton,
-                { backgroundColor: theme.primary },
-              ]}
-              onPress={closeBottomSheet}
-            >
-              <Text style={styles.sheetActionText}>{t("common.close")}</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      )}
+                      {canCreateComplaint ? (
+                        <TouchableOpacity
+                          style={[
+                            styles.sheetActionButton,
+                            {
+                              backgroundColor: theme.background,
+                              borderWidth: 1,
+                              borderColor: theme.primary,
+                            },
+                          ]}
+                          onPress={openComplaintForm}
+                        >
+                          <Ionicons
+                            name="alert-circle-outline"
+                            size={18}
+                            color={theme.primary}
+                            style={{ marginRight: 8 }}
+                          />
+                          <Text
+                            style={[
+                              styles.sheetActionText,
+                              { color: theme.primary },
+                            ]}
+                          >
+                            {t("checkin.complaint.action")}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+
+                      <TouchableOpacity
+                        style={[
+                          styles.sheetActionButton,
+                          { backgroundColor: theme.primary },
+                        ]}
+                        onPress={closeBottomSheet}
+                      >
+                        <Text style={styles.sheetActionText}>
+                          {t("common.close")}
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <Text
+                        style={[
+                          styles.sheetHint,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {t("checkin.complaint.subtitle")}
+                      </Text>
+
+                      <Text
+                        style={[
+                          styles.sheetDetailLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {t("checkin.complaint.typeLabel")}
+                      </Text>
+                      <View style={styles.complaintTypeWrap}>
+                        {complaintTypes.map((item) => {
+                          const active = complaintType === item.code;
+                          return (
+                            <TouchableOpacity
+                              key={item.code}
+                              style={[
+                                styles.complaintTypeChip,
+                                {
+                                  borderColor: active
+                                    ? theme.primary
+                                    : theme.border,
+                                  backgroundColor: active
+                                    ? `${theme.primary}18`
+                                    : theme.background,
+                                },
+                              ]}
+                              onPress={() =>
+                                setComplaintType(
+                                  item.code as AttendanceComplaintType,
+                                )
+                              }
+                            >
+                              <Text
+                                style={{
+                                  color: active
+                                    ? theme.primary
+                                    : theme.textMain,
+                                  fontSize: 12,
+                                  fontWeight: "700",
+                                }}
+                              >
+                                {t(item.labelKey)}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+
+                      {needsCheckIn ? (
+                        <View style={styles.complaintField}>
+                          <Text
+                            style={[
+                              styles.sheetDetailLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {t("checkin.complaint.requestedCheckIn")}
+                          </Text>
+                          <Input
+                            value={requestedCheckIn}
+                            onChangeText={setRequestedCheckIn}
+                            placeholder="08:00"
+                          />
+                        </View>
+                      ) : null}
+
+                      {needsCheckOut ? (
+                        <View style={styles.complaintField}>
+                          <Text
+                            style={[
+                              styles.sheetDetailLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {t("checkin.complaint.requestedCheckOut")}
+                          </Text>
+                          <Input
+                            value={requestedCheckOut}
+                            onChangeText={setRequestedCheckOut}
+                            placeholder="17:30"
+                          />
+                        </View>
+                      ) : null}
+
+                      <View style={styles.complaintField}>
+                        <Text
+                          style={[
+                            styles.sheetDetailLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {t("checkin.complaint.reason")}
+                        </Text>
+                        <Textarea
+                          value={complaintReason}
+                          onChangeText={setComplaintReason}
+                          placeholder={t("checkin.complaint.reasonPlaceholder")}
+                        />
+                      </View>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.sheetActionButton,
+                          {
+                            backgroundColor: theme.primary,
+                            opacity: creating ? 0.7 : 1,
+                          },
+                        ]}
+                        onPress={submitComplaint}
+                        disabled={creating}
+                      >
+                        {creating ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text style={styles.sheetActionText}>
+                            {t("checkin.complaint.submit")}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.sheetActionButton,
+                          {
+                            backgroundColor: theme.background,
+                            borderWidth: 1,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                        onPress={() => setComplaintOpen(false)}
+                        disabled={creating}
+                      >
+                        <Text
+                          style={[
+                            styles.sheetActionText,
+                            { color: theme.textMain },
+                          ]}
+                        >
+                          {t("common.close")}
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </ScrollView>
+              </Pressable>
+            </KeyboardAvoidingView>
+          </Pressable>
+        ) : null}
+      </Modal>
     </View>
   );
 }
@@ -920,21 +1323,26 @@ const styles = StyleSheet.create({
   },
 
   bottomSheetContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
     borderTopWidth: 1.5,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    paddingBottom: 40,
     paddingHorizontal: 20,
+    maxHeight: "100%",
+    width: "100%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -10 },
     shadowOpacity: 0.1,
     shadowRadius: 16,
     elevation: 20,
-    zIndex: 99,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "flex-end",
+  },
+  modalKeyboard: {
+    width: "100%",
+    justifyContent: "flex-end",
   },
   sheetGrabberContainer: {
     alignItems: "center",
@@ -949,17 +1357,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sheetTitle: {
     fontSize: 16,
     fontWeight: "800",
+    flex: 1,
+    paddingRight: 8,
   },
   sheetCloseBtn: {
     padding: 4,
   },
+  sheetScroll: {
+    maxHeight: 520,
+  },
   sheetBody: {
     gap: 14,
+    paddingBottom: 8,
+  },
+  sheetHint: {
+    fontSize: 13,
+    fontWeight: "500",
+    lineHeight: 18,
   },
   sheetStatusBadge: {
     flexDirection: "row",
@@ -978,63 +1397,75 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 16,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
   },
   sheetTimeBlock: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-  },
-  sheetTimeLabel: {
-    fontSize: 10,
-    fontWeight: "500",
-  },
-  sheetTimeValue: {
-    fontSize: 14,
-    fontWeight: "800",
-    marginTop: 2,
+    paddingHorizontal: 8,
   },
   sheetTimeDivider: {
     width: 1,
-    marginHorizontal: 16,
+  },
+  sheetTimeLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  sheetTimeValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 2,
   },
   sheetDetailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 6,
   },
   sheetDetailLabel: {
-    fontSize: 13,
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: "600",
   },
   sheetDetailValue: {
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "800",
   },
   sheetNoteBlock: {
     flexDirection: "row",
     gap: 8,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 12,
   },
   sheetNoteText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 13,
     lineHeight: 18,
   },
   sheetActionButton: {
     height: 48,
     borderRadius: 14,
-    justifyContent: "center",
     alignItems: "center",
-    marginTop: 8,
+    justifyContent: "center",
+    flexDirection: "row",
   },
   sheetActionText: {
-    color: "#FFFFFF",
+    color: "#fff",
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
+  },
+  complaintTypeWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  complaintTypeChip: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  complaintField: {
+    gap: 8,
   },
 });

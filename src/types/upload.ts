@@ -12,12 +12,7 @@ export interface UploadFileResult {
 }
 
 export type UploadMode =
-  | "single"
-  | "image"
-  | "document"
-  | "audio"
-  | "catbox"
-  | "s3";
+  "single" | "image" | "document" | "audio" | "catbox" | "s3";
 
 export interface PickedFile {
   uri: string;

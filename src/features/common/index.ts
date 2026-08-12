@@ -4,11 +4,14 @@ export type { TranslateParams } from "./i18n";
 export { pickString, pickTrimmedString } from "./string";
 
 export {
+  clockOrEmpty,
   formatClock,
   formatDisplayDate,
   getLocalizedDate,
+  parseHhMmToTimeSpan,
   parseInputDateToIso,
   parseWorkDate,
+  toDateOnly,
 } from "./date";
 
 export type {

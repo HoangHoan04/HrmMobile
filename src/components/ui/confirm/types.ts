@@ -6,7 +6,8 @@ export type ConfirmButton = {
   onPress?: () => void | Promise<void>;
 };
 
-export type ConfirmVariant = "info" | "success" | "warning" | "error" | "confirm";
+export type ConfirmVariant =
+  "info" | "success" | "warning" | "error" | "confirm";
 
 export type ConfirmOptions = {
   title: string;

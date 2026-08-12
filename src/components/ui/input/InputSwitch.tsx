@@ -9,7 +9,11 @@ interface CustomSwitchProps {
   isDisabled?: boolean;
 }
 
-export const InputSwitch = ({ value, onToggle, isDisabled }: CustomSwitchProps) => {
+export const InputSwitch = ({
+  value,
+  onToggle,
+  isDisabled,
+}: CustomSwitchProps) => {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
 

@@ -103,7 +103,6 @@ export const enumData = {
       action: "muted" as const,
     },
   },
-  /** Khớp Date.getDay(): 0=CN … 6=T7 — thứ tự calendar Sun→Sat */
   DAY_OF_WEEK: {
     SUNDAY: {
       code: "SUNDAY",
@@ -146,6 +145,28 @@ export const enumData = {
       key: "T7",
       labelKey: "enums.daysOfWeek.sat",
       value: 6,
+    },
+  },
+  ATTENDANCE_COMPLAINT_TYPE: {
+    FORGOT_CHECK_IN: {
+      code: "FORGOT_CHECK_IN",
+      labelKey: "checkin.complaint.typeForgotCheckIn",
+    },
+    FORGOT_CHECK_OUT: {
+      code: "FORGOT_CHECK_OUT",
+      labelKey: "checkin.complaint.typeForgotCheckOut",
+    },
+    FORGOT_BOTH: {
+      code: "FORGOT_BOTH",
+      labelKey: "checkin.complaint.typeForgotBoth",
+    },
+    WRONG_TIME: {
+      code: "WRONG_TIME",
+      labelKey: "checkin.complaint.typeWrongTime",
+    },
+    OTHER: {
+      code: "OTHER",
+      labelKey: "checkin.complaint.typeOther",
     },
   },
 };

@@ -1,12 +1,7 @@
 import { enumData } from "@/constants/enums/enumData";
 
 export type DayOffTypeCode =
-  | "ANNUAL"
-  | "SICK"
-  | "UNPAID"
-  | "MATERNITY"
-  | "PATERNITY"
-  | "OTHER";
+  "ANNUAL" | "SICK" | "UNPAID" | "MATERNITY" | "PATERNITY" | "OTHER";
 
 export type DayOffTypeItem =
   (typeof enumData.DAY_OFF_TYPE)[keyof typeof enumData.DAY_OFF_TYPE];
@@ -23,9 +18,7 @@ export function isDayOffTypeCode(value: unknown): value is DayOffTypeCode {
   return typeof value === "string" && value in BY_CODE;
 }
 
-export function resolveDayOffType(
-  type?: string | null,
-): DayOffTypeItem {
+export function resolveDayOffType(type?: string | null): DayOffTypeItem {
   const key = typeof type === "string" ? type.toUpperCase() : "";
   if (isDayOffTypeCode(key)) return BY_CODE[key];
   return enumData.DAY_OFF_TYPE.OTHER;

@@ -1,17 +1,16 @@
-import { ConfirmContainer } from "@/components/ui/confirm";
 import { AppDrawer } from "@/components/layout/drawer";
+import { ConfirmContainer } from "@/components/ui/confirm";
 import { ToastContainer } from "@/components/ui/Toast";
 import { Colors } from "@/constants/common/Colors";
 import { useAuthStore } from "@/store/authStore";
+import { useLanguageStore } from "@/store/languageStore";
+import { useThemeStore } from "@/store/themeStore";
 import { Feather } from "@expo/vector-icons";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
-
-import { useLanguageStore } from "@/store/languageStore";
-import { useThemeStore } from "@/store/themeStore";
 
 const queryClient = new QueryClient();
 

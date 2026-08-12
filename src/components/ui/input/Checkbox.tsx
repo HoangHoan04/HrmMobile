@@ -57,9 +57,7 @@ export const Checkbox = ({
         {isChecked && <Feather name="check" size={16} color="#FFFFFF" />}
       </View>
       {label && (
-        <Text style={{ color: theme.textMain, fontSize: 14 }}>
-          {label}
-        </Text>
+        <Text style={{ color: theme.textMain, fontSize: 14 }}>{label}</Text>
       )}
     </TouchableOpacity>
   );

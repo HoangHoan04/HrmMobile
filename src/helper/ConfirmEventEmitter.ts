@@ -37,7 +37,6 @@ export function showAlert(
   });
 }
 
-/** Promise-based confirm. Resolves true when confirm pressed, false otherwise. */
 export function confirmAsync(options: ConfirmAsyncOptions): Promise<boolean> {
   const t = useLanguageStore.getState().t;
   return new Promise((resolve) => {

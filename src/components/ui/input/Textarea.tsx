@@ -24,7 +24,11 @@ export const Textarea = ({
   return (
     <View
       style={{
-        borderColor: isInvalid ? theme.danger : isFocused ? theme.primary : theme.border,
+        borderColor: isInvalid
+          ? theme.danger
+          : isFocused
+            ? theme.primary
+            : theme.border,
         backgroundColor: isDisabled ? theme.background : theme.cardBg,
         borderWidth: 1,
         borderRadius: 12,

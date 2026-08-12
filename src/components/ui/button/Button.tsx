@@ -72,7 +72,9 @@ export const Button = ({
   };
 
   return (
-    <Animated.View style={[{ transform: [{ scale: scaleAnim }], width: "100%" }]}>
+    <Animated.View
+      style={[{ transform: [{ scale: scaleAnim }], width: "100%" }]}
+    >
       <Pressable
         onPress={handlePress}
         onPressIn={handlePressIn}

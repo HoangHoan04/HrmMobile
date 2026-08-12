@@ -12,7 +12,6 @@ export type DayOfWeekCode =
 export type DayOfWeekItem =
   (typeof enumData.DAY_OF_WEEK)[keyof typeof enumData.DAY_OF_WEEK];
 
-/** Thứ tự lịch (Sun → Sat), khớp Date.getDay(). */
 export const CALENDAR_WEEKDAYS: DayOfWeekItem[] = [
   enumData.DAY_OF_WEEK.SUNDAY,
   enumData.DAY_OF_WEEK.MONDAY,
@@ -23,8 +22,6 @@ export const CALENDAR_WEEKDAYS: DayOfWeekItem[] = [
   enumData.DAY_OF_WEEK.SATURDAY,
 ];
 
-export function getCalendarWeekdayLabels(
-  t: (key: string) => string,
-): string[] {
+export function getCalendarWeekdayLabels(t: (key: string) => string): string[] {
   return CALENDAR_WEEKDAYS.map((d) => t(d.labelKey));
 }

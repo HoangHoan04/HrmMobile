@@ -14,11 +14,24 @@ export const endpoints = {
     checkOut: "/mobile/timekeeping/check-out",
     month: "/mobile/timekeeping/month",
   },
+  attendanceComplaint: {
+    create: "/mobile/attendance-complaint/create",
+    myList: "/mobile/attendance-complaint/my-list",
+    cancel: "/mobile/attendance-complaint/cancel",
+  },
   leave: {
     create: "/mobile/leave/create",
     myList: "/mobile/leave/my-list",
     cancel: "/mobile/leave/cancel",
     balance: "/mobile/leave/balance",
+    previewDays: "/mobile/leave/preview-days",
+    pendingApprovals: "/mobile/leave/pending-approvals",
+    approve: "/mobile/leave/approve",
+    reject: "/mobile/leave/reject",
+  },
+  salary: {
+    myList: "/mobile/salary/my-list",
+    detail: "/mobile/salary/detail",
   },
   upload: {
     single: "/upload-file/upload-single",

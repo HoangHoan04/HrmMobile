@@ -54,6 +54,9 @@ export type MobileProfile = {
   bankAccountNumber?: string | null;
   bankName?: string | null;
 
+  roles?: string[];
+  permissions?: string[];
+
   stats?: MobileProfileStats | null;
 };
 
@@ -222,6 +225,14 @@ export function normalizeMobileProfile(raw: any): MobileProfile | null {
       emp?.bankName,
       emp?.BankName,
     ),
+    roles: Array.isArray(raw.roles || raw.Roles)
+      ? (raw.roles || raw.Roles).filter((x: unknown) => typeof x === "string")
+      : [],
+    permissions: Array.isArray(raw.permissions || raw.Permissions)
+      ? (raw.permissions || raw.Permissions).filter(
+          (x: unknown) => typeof x === "string",
+        )
+      : [],
     stats: {
       workDaysThisMonth:
         statsRaw.workDaysThisMonth ?? statsRaw.WorkDaysThisMonth ?? null,

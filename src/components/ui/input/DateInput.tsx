@@ -24,12 +24,9 @@ export type DateInputProps = {
   onChange?: (isoDate: string) => void;
   placeholder?: string;
   label?: string;
-  /** yyyy-MM-dd — days before this are disabled */
   minDate?: string | null;
-  /** yyyy-MM-dd — days after this are disabled */
   maxDate?: string | null;
   disabled?: boolean;
-  /** Use inline when already inside another Modal (avoids nested Modal issues). */
   presentation?: "modal" | "inline";
   style?: StyleProp<ViewStyle>;
 };

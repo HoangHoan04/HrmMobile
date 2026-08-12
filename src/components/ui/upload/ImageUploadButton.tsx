@@ -47,11 +47,9 @@ export function ImageUploadButton({
   const pickImage = useCallback(async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      showAlert(
-        t("upload.permissionTitle"),
-        t("upload.permissionBody"),
-        { variant: "warning" },
-      );
+      showAlert(t("upload.permissionTitle"), t("upload.permissionBody"), {
+        variant: "warning",
+      });
       return;
     }
 

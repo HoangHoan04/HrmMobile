@@ -9,11 +9,7 @@ interface CustomCardProps {
   padding?: number;
 }
 
-export const Card = ({
-  children,
-  onPress,
-  padding = 16,
-}: CustomCardProps) => {
+export const Card = ({ children, onPress, padding = 16 }: CustomCardProps) => {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   const scaleAnim = useRef(new Animated.Value(1)).current;

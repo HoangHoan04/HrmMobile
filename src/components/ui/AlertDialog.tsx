@@ -1,11 +1,22 @@
 import { Colors } from "@/constants/common/Colors";
 import React from "react";
-import { useColorScheme, Modal as RNModal, View, TouchableOpacity, Text } from "react-native";
+import {
+  useColorScheme,
+  Modal as RNModal,
+  View,
+  TouchableOpacity,
+  Text,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 export const AlertDialog = ({ isOpen, onClose, children }: any) => {
   return (
-    <RNModal visible={isOpen} transparent animationType="fade" onRequestClose={onClose}>
+    <RNModal
+      visible={isOpen}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
       <TouchableOpacity
         activeOpacity={1}
         style={{
@@ -50,7 +61,16 @@ export const AlertDialogHeader = ({ children }: any) => {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   return (
-    <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: theme.border, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+    <View
+      style={{
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.border,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}
+    >
       {children}
     </View>
   );
@@ -64,7 +84,15 @@ export const AlertDialogFooter = ({ children }: any) => {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   return (
-    <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: "row", justifyContent: "flex-end" }}>
+    <View
+      style={{
+        padding: 16,
+        borderTopWidth: 1,
+        borderTopColor: theme.border,
+        flexDirection: "row",
+        justifyContent: "flex-end",
+      }}
+    >
       {children}
     </View>
   );

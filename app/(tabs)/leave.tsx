@@ -1,5 +1,5 @@
-import { Badge, BadgeText } from "@/components/ui/Badge";
 import { DrawerMenuButton } from "@/components/layout/drawer";
+import { Badge, BadgeText } from "@/components/ui/Badge";
 import { showConfirm } from "@/components/ui/confirm";
 import { DateInput } from "@/components/ui/input/DateInput";
 import { Colors } from "@/constants/common/Colors";
@@ -11,20 +11,23 @@ import {
 } from "@/constants/enums/dayOffStatus";
 import {
   DAY_OFF_TYPE,
-  DAY_OFF_TYPE_OPTIONS,
   DayOffTypeCode,
   resolveDayOffType,
 } from "@/constants/enums/dayOffType";
 import { formatDisplayDate } from "@/features/common";
 import { showToastError } from "@/helper/ToastEventEmitter";
 import {
+  LeaveSession,
   MobileLeaveConfigDto,
   RegisterDayOffDto,
   useLeave,
+  usePermissions,
+  useUpload,
 } from "@/hooks";
 import { useLanguageStore } from "@/store/languageStore";
 import { useThemeStore } from "@/store/themeStore";
 import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -40,6 +43,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+const FILTER_PENDING_APPROVALS = "pendingApprovals";
+
+const SESSION_OPTIONS: LeaveSession[] = ["FULL", "AM", "PM"];
+
 interface LeaveRequest {
   id: string;
   type: DayOffTypeCode;
@@ -53,9 +60,17 @@ interface LeaveRequest {
   startDate: string;
   endDate: string;
   days: number;
+  session: LeaveSession;
   reason: string;
+  attachmentUrl: string;
+  employeeName: string;
   approverName: string;
+  requestedApproverName: string;
+  approverNote: string;
+  cancelReason: string;
+  approvedAt: string;
   submittedAt: string;
+  isPendingApproval: boolean;
 }
 
 function formatDays(value: number): string {
@@ -63,7 +78,16 @@ function formatDays(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-function mapLeaveDto(dto: RegisterDayOffDto): LeaveRequest {
+function normalizeSession(value?: string | null): LeaveSession {
+  const raw = String(value || "FULL").toUpperCase();
+  if (raw === "AM" || raw === "PM") return raw;
+  return "FULL";
+}
+
+function mapLeaveDto(
+  dto: RegisterDayOffDto,
+  isPendingApproval = false,
+): LeaveRequest {
   const typeMeta = resolveDayOffType(dto.dayOffType);
   const statusMeta = resolveDayOffStatus(dto.status);
 
@@ -80,22 +104,30 @@ function mapLeaveDto(dto: RegisterDayOffDto): LeaveRequest {
     startDate: formatDisplayDate(dto.fromDate),
     endDate: formatDisplayDate(dto.toDate),
     days: Number(dto.totalDays) || 0,
+    session: normalizeSession(dto.session),
     reason: dto.reason || "",
+    attachmentUrl: dto.attachmentUrl || "",
+    employeeName: dto.employeeName || dto.employeeCode || "—",
     approverName: dto.approverName || "—",
+    requestedApproverName: dto.requestedApproverName || "—",
+    approverNote: dto.approverNote || "",
+    cancelReason: dto.cancelReason || "",
+    approvedAt: formatDisplayDate(dto.approvedAt),
     submittedAt: formatDisplayDate(dto.createdAt),
+    isPendingApproval,
   };
 }
 
-function toFormOptions(configs: MobileLeaveConfigDto[]): MobileLeaveConfigDto[] {
-  if (configs.length > 0) return configs;
-  return DAY_OFF_TYPE_OPTIONS.map((item) => ({
-    id: "",
-    code: item.code,
-    name: "",
-    dayOffType: item.code,
-    defaultDaysPerYear: 0,
-    isPaid: item.isPaid,
-  }));
+function toFormOptions(
+  configs: MobileLeaveConfigDto[],
+): MobileLeaveConfigDto[] {
+  return configs.filter((c) => !!c.id);
+}
+
+function sessionLabelKey(session: LeaveSession): string {
+  if (session === "AM") return "leave.sessionAm";
+  if (session === "PM") return "leave.sessionPm";
+  return "leave.sessionFull";
 }
 
 export default function LeaveScreen() {
@@ -103,18 +135,35 @@ export default function LeaveScreen() {
   const theme = Colors[colorScheme];
   const { t, language } = useLanguageStore();
   const insets = useSafeAreaInsets();
+  const { upload, loading: uploading } = useUpload();
   const {
     leaves: leaveDtos,
+    pendingApprovals: pendingApprovalDtos,
     balance,
     configs,
     loading,
     submitting,
     fetchMyList,
+    refreshAll,
+    previewDays,
     createLeave,
     cancelLeave,
+    approveLeave,
+    rejectLeave,
   } = useLeave();
+  const { canApproveLeave } = usePermissions();
 
-  const leaves = useMemo(() => leaveDtos.map(mapLeaveDto), [leaveDtos]);
+  const leaves = useMemo(
+    () => leaveDtos.map((d) => mapLeaveDto(d)),
+    [leaveDtos],
+  );
+  const pendingApprovals = useMemo(
+    () =>
+      canApproveLeave
+        ? pendingApprovalDtos.map((d) => mapLeaveDto(d, true))
+        : [],
+    [canApproveLeave, pendingApprovalDtos],
+  );
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
@@ -125,11 +174,30 @@ export default function LeaveScreen() {
   const [formType, setFormType] = useState<DayOffTypeCode>(
     DAY_OFF_TYPE.ANNUAL.code as DayOffTypeCode,
   );
+  const [formSession, setFormSession] = useState<LeaveSession>("FULL");
   const [formStartDate, setFormStartDate] = useState("");
   const [formEndDate, setFormEndDate] = useState("");
   const [formReason, setFormReason] = useState("");
+  const [formAttachmentUrl, setFormAttachmentUrl] = useState("");
+  const [previewTotalDays, setPreviewTotalDays] = useState<number | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [approverNote, setApproverNote] = useState("");
 
   const formOptions = useMemo(() => toFormOptions(configs), [configs]);
+
+  const selectedConfig = useMemo(() => {
+    if (formConfigId) {
+      return formOptions.find((c) => c.id === formConfigId) || null;
+    }
+    return (
+      formOptions.find(
+        (c) => resolveDayOffType(c.dayOffType || c.code).code === formType,
+      ) || null
+    );
+  }, [formConfigId, formOptions, formType]);
+
+  const requireAttachment = !!selectedConfig?.requireAttachment;
+  const deductBalance = !!selectedConfig?.deductBalance;
 
   useFocusEffect(
     useCallback(() => {
@@ -145,15 +213,74 @@ export default function LeaveScreen() {
     setFormType(resolveDayOffType(first.dayOffType).code as DayOffTypeCode);
   }, [isCreateOpen, formOptions]);
 
-  const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await fetchMyList();
-    } catch {
-    } finally {
-      setRefreshing(false);
+  useEffect(() => {
+    if (formSession === "AM" || formSession === "PM") {
+      if (formStartDate && formEndDate !== formStartDate) {
+        setFormEndDate(formStartDate);
+      }
     }
-  }, [fetchMyList]);
+  }, [formSession, formStartDate, formEndDate]);
+
+  useEffect(() => {
+    if (!isCreateOpen || !formStartDate || !formEndDate) {
+      setPreviewTotalDays(null);
+      return;
+    }
+    if (formEndDate < formStartDate) {
+      setPreviewTotalDays(null);
+      return;
+    }
+
+    let cancelled = false;
+    setPreviewLoading(true);
+    previewDays(formStartDate, formEndDate, formSession)
+      .then((result) => {
+        if (!cancelled) {
+          setPreviewTotalDays(result ? result.totalDays : null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreateOpen, formStartDate, formEndDate, formSession, previewDays]);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    const startedAt = Date.now();
+    const MIN_SPINNER_MS = 450;
+
+    void (async () => {
+      try {
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve());
+        });
+        await (refreshAll ?? fetchMyList)();
+      } catch {
+        //! lỗi từng API đã toast trong hook (nếu có)
+      } finally {
+        const remain = MIN_SPINNER_MS - (Date.now() - startedAt);
+        if (remain > 0) {
+          await new Promise((r) => setTimeout(r, remain));
+        }
+        setRefreshing(false);
+      }
+    })();
+  }, [refreshAll, fetchMyList]);
+
+  const resetCreateForm = () => {
+    setFormStartDate("");
+    setFormEndDate("");
+    setFormReason("");
+    setFormAttachmentUrl("");
+    setFormConfigId(null);
+    setFormType(DAY_OFF_TYPE.ANNUAL.code as DayOffTypeCode);
+    setFormSession("FULL");
+    setPreviewTotalDays(null);
+  };
 
   const handleCancelLeave = (id: string) => {
     showConfirm({
@@ -176,7 +303,86 @@ export default function LeaveScreen() {
     });
   };
 
+  const handleApprove = (id: string) => {
+    showConfirm({
+      title: t("leave.approve"),
+      message: t("leave.approveConfirm"),
+      variant: "confirm",
+      buttons: [
+        { text: t("common.no"), style: "cancel" },
+        {
+          text: t("leave.approve"),
+          style: "default",
+          onPress: async () => {
+            try {
+              await approveLeave({
+                id,
+                approverNote: approverNote.trim() || null,
+              });
+              setIsDetailOpen(false);
+              setApproverNote("");
+            } catch {}
+          },
+        },
+      ],
+    });
+  };
+
+  const handleReject = (id: string) => {
+    if (!approverNote.trim()) {
+      showToastError(t("leave.rejectNoteRequired"));
+      return;
+    }
+    showConfirm({
+      title: t("leave.reject"),
+      message: t("leave.rejectConfirm"),
+      variant: "warning",
+      buttons: [
+        { text: t("common.no"), style: "cancel" },
+        {
+          text: t("leave.reject"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await rejectLeave({
+                id,
+                approverNote: approverNote.trim(),
+              });
+              setIsDetailOpen(false);
+              setApproverNote("");
+            } catch {}
+          },
+        },
+      ],
+    });
+  };
+
+  const handleUploadAttachment = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      const uploadResult = await upload(
+        {
+          uri: asset.uri,
+          name: asset.name,
+          mimeType: asset.mimeType || "application/octet-stream",
+          size: asset.size,
+        },
+        "document",
+      );
+      setFormAttachmentUrl(uploadResult.fileUrl);
+    } catch {}
+  };
+
   const handleCreateSubmit = async () => {
+    if (!formConfigId) {
+      showToastError(t("leave.configRequired"));
+      return;
+    }
     if (!formStartDate || !formEndDate || !formReason.trim()) {
       showToastError(t("leave.validationRequired"));
       return;
@@ -185,21 +391,56 @@ export default function LeaveScreen() {
       showToastError(t("leave.validationDateOrder"));
       return;
     }
+    if (
+      (formSession === "AM" || formSession === "PM") &&
+      formStartDate !== formEndDate
+    ) {
+      showToastError(t("leave.sessionSingleDay"));
+      return;
+    }
+    if (requireAttachment && !formAttachmentUrl.trim()) {
+      showToastError(t("leave.attachmentRequired"));
+      return;
+    }
+
+    const requestDays =
+      previewTotalDays != null
+        ? previewTotalDays
+        : ((await previewDays(formStartDate, formEndDate, formSession))
+            ?.totalDays ?? 0);
+
+    if (
+      deductBalance &&
+      formType === DAY_OFF_TYPE.ANNUAL.code &&
+      requestDays > 0
+    ) {
+      const remaining = Number(balance?.annualRemaining) || 0;
+      if (requestDays > remaining) {
+        showToastError(
+          t("leave.insufficientBalance", {
+            remaining: formatDays(remaining),
+            request: formatDays(requestDays),
+          }),
+        );
+        return;
+      }
+    }
 
     try {
       await createLeave({
         dayOffType: formType,
         fromDate: formStartDate,
-        toDate: formEndDate,
+        toDate:
+          formSession === "AM" || formSession === "PM"
+            ? formStartDate
+            : formEndDate,
+        session: formSession,
         reason: formReason.trim(),
-        dayOffConfigId: formConfigId || null,
+        dayOffConfigId: formConfigId,
+        attachmentUrl: formAttachmentUrl.trim() || null,
       });
       setIsCreateOpen(false);
-      setFormStartDate("");
-      setFormEndDate("");
-      setFormReason("");
-      setFormConfigId(null);
-      setFormType(DAY_OFF_TYPE.ANNUAL.code as DayOffTypeCode);
+      resetCreateForm();
     } catch {}
   };
 
@@ -207,11 +448,12 @@ export default function LeaveScreen() {
     const total = Number(balance?.annualTotal) || 0;
     const remaining = Number(balance?.annualRemaining) || 0;
     const used = Number(balance?.annualUsed) || 0;
+    const pending = Number(balance?.annualPending) || 0;
     const sickUsed = Number(balance?.sickUsed) || 0;
     const unpaidUsed = Number(balance?.unpaidUsed) || 0;
     const progress =
       total > 0 ? Math.min(100, Math.max(0, (remaining / total) * 100)) : 0;
-    return { total, remaining, used, sickUsed, unpaidUsed, progress };
+    return { total, remaining, used, pending, sickUsed, unpaidUsed, progress };
   }, [balance]);
 
   const counts = useMemo(() => {
@@ -227,7 +469,23 @@ export default function LeaveScreen() {
     return next;
   }, [leaves]);
 
+  const isPendingApprovalsFilter = selectedFilter === FILTER_PENDING_APPROVALS;
+
   const groupedLeaves = useMemo(() => {
+    if (isPendingApprovalsFilter) {
+      const groups: { [key: string]: LeaveRequest[] } = {};
+      pendingApprovals.forEach((item) => {
+        const parts = item.submittedAt.split("/");
+        const monthStr =
+          parts.length === 3
+            ? t("leave.monthGroup", { m: parts[1], y: parts[2] })
+            : t("leave.other");
+        if (!groups[monthStr]) groups[monthStr] = [];
+        groups[monthStr].push(item);
+      });
+      return groups;
+    }
+
     const filtered = leaves.filter((l) => {
       if (selectedFilter === "all") return true;
       return l.status === selectedFilter;
@@ -247,7 +505,14 @@ export default function LeaveScreen() {
     });
 
     return groups;
-  }, [leaves, selectedFilter, t, language]);
+  }, [
+    leaves,
+    pendingApprovals,
+    selectedFilter,
+    isPendingApprovalsFilter,
+    t,
+    language,
+  ]);
 
   const hasItems = Object.keys(groupedLeaves).length > 0;
 
@@ -259,13 +524,16 @@ export default function LeaveScreen() {
   const selectFormOption = (option: MobileLeaveConfigDto) => {
     setFormConfigId(option.id || null);
     setFormType(
-      resolveDayOffType(option.dayOffType || option.code).code as DayOffTypeCode,
+      resolveDayOffType(option.dayOffType || option.code)
+        .code as DayOffTypeCode,
     );
   };
 
   const isOptionActive = (option: MobileLeaveConfigDto) => {
     if (option.id && formConfigId) return option.id === formConfigId;
-    return resolveDayOffType(option.dayOffType || option.code).code === formType;
+    return (
+      resolveDayOffType(option.dayOffType || option.code).code === formType
+    );
   };
 
   const filterLabel = (code: DayOffStatusCode, n: number) => {
@@ -281,6 +549,19 @@ export default function LeaveScreen() {
     return t("leave.filterCancelled", { n });
   };
 
+  const openDetail = (item: LeaveRequest) => {
+    setSelectedLeave(item);
+    setApproverNote("");
+    setIsDetailOpen(true);
+  };
+
+  const setSession = (session: LeaveSession) => {
+    setFormSession(session);
+    if ((session === "AM" || session === "PM") && formStartDate) {
+      setFormEndDate(formStartDate);
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView
@@ -294,6 +575,9 @@ export default function LeaveScreen() {
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={theme.primary}
+            colors={[theme.primary]}
+            progressBackgroundColor={theme.cardBg}
+            progressViewOffset={insets.top}
           />
         }
       >
@@ -317,10 +601,23 @@ export default function LeaveScreen() {
             <Text style={[styles.balanceNum, { color: theme.primary }]}>
               {formatDays(balanceUi.remaining)}{" "}
               <Text style={{ fontSize: 13, color: theme.textSecondary }}>
-                {t("leave.daysOfTotal", { n: formatDays(balanceUi.total) })}
+                {balanceUi.total > 0
+                  ? t("leave.daysOfTotal", { n: formatDays(balanceUi.total) })
+                  : t("leave.daysOfTotalNone")}
               </Text>
             </Text>
           </View>
+
+          {balanceUi.total <= 0 && (
+            <Text
+              style={[
+                styles.balanceSubText,
+                { color: theme.warning, marginBottom: 8 },
+              ]}
+            >
+              {t("leave.notAllocated")}
+            </Text>
+          )}
 
           <View
             style={[
@@ -340,6 +637,10 @@ export default function LeaveScreen() {
               ]}
             />
           </View>
+
+          <Text style={[styles.balancePending, { color: theme.warning }]}>
+            {t("leave.annualPending", { n: formatDays(balanceUi.pending) })}
+          </Text>
 
           <Text style={[styles.balanceSubText, { color: theme.textSecondary }]}>
             {t("leave.sickUnpaidSummary", {
@@ -375,6 +676,37 @@ export default function LeaveScreen() {
             </Text>
           </TouchableOpacity>
 
+          {canApproveLeave ? (
+            <TouchableOpacity
+              style={[
+                styles.filterChip,
+                isPendingApprovalsFilter
+                  ? {
+                      backgroundColor: theme.primary,
+                      borderColor: theme.primary,
+                    }
+                  : {
+                      backgroundColor: theme.cardBg,
+                      borderColor: theme.border,
+                    },
+              ]}
+              onPress={() => setSelectedFilter(FILTER_PENDING_APPROVALS)}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  isPendingApprovalsFilter
+                    ? { color: "#FFFFFF" }
+                    : { color: theme.textMain },
+                ]}
+              >
+                {t("leave.filterPendingApprovals", {
+                  n: pendingApprovals.length,
+                })}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
           {DAY_OFF_STATUS_OPTIONS.map((status) => {
             const code = status.code as DayOffStatusCode;
             const active = selectedFilter === code;
@@ -398,9 +730,7 @@ export default function LeaveScreen() {
                 <Text
                   style={[
                     styles.filterText,
-                    active
-                      ? { color: "#FFFFFF" }
-                      : { color: theme.textMain },
+                    active ? { color: "#FFFFFF" } : { color: theme.textMain },
                   ]}
                 >
                   {filterLabel(code, counts[code])}
@@ -410,7 +740,10 @@ export default function LeaveScreen() {
           })}
         </ScrollView>
 
-        {loading && leaves.length === 0 ? (
+        {loading &&
+        !refreshing &&
+        leaves.length === 0 &&
+        !isPendingApprovalsFilter ? (
           <View style={styles.emptyStateContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
             <Text
@@ -432,7 +765,7 @@ export default function LeaveScreen() {
               </Text>
               {groupedLeaves[monthGroup].map((item) => (
                 <TouchableOpacity
-                  key={item.id}
+                  key={`${item.isPendingApproval ? "pa" : "my"}-${item.id}`}
                   style={[
                     styles.leaveCard,
                     {
@@ -441,10 +774,7 @@ export default function LeaveScreen() {
                     },
                   ]}
                   activeOpacity={0.7}
-                  onPress={() => {
-                    setSelectedLeave(item);
-                    setIsDetailOpen(true);
-                  }}
+                  onPress={() => openDetail(item)}
                 >
                   <View style={styles.cardHeader}>
                     <View style={styles.cardHeaderLeft}>
@@ -474,11 +804,23 @@ export default function LeaveScreen() {
                     </Badge>
                   </View>
 
+                  {item.isPendingApproval && (
+                    <Text
+                      style={[
+                        styles.employeeText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {t("leave.employee")}: {item.employeeName}
+                    </Text>
+                  )}
+
                   <Text
                     style={[styles.dateRangeText, { color: theme.textMain }]}
                   >
                     {item.startDate}{" "}
                     {item.startDate !== item.endDate && `→ ${item.endDate}`} ·{" "}
+                    {t(sessionLabelKey(item.session))} ·{" "}
                     <Text style={{ fontWeight: "700", color: theme.primary }}>
                       {t("leave.daysCount", { n: item.days })}
                     </Text>
@@ -491,22 +833,51 @@ export default function LeaveScreen() {
                         { color: theme.textSecondary },
                       ]}
                     >
-                      {t("leave.submittedAt")}: {item.submittedAt} ·{" "}
-                      {t("leave.approver")}: {item.approverName}
+                      {t("leave.submittedAt")}: {item.submittedAt}
+                      {!item.isPendingApproval
+                        ? ` · ${t("leave.approver")}: ${item.approverName}`
+                        : ""}
                     </Text>
 
-                    {item.status === DAY_OFF_STATUS.PENDING.code && (
-                      <TouchableOpacity
-                        style={[
-                          styles.cardCancelBtn,
-                          { borderColor: "#EF4444" },
-                        ]}
-                        onPress={() => handleCancelLeave(item.id)}
-                      >
-                        <Text style={styles.cardCancelBtnText}>
-                          {t("leave.cancelAction")}
-                        </Text>
-                      </TouchableOpacity>
+                    {item.isPendingApproval ? (
+                      <View style={styles.cardActionRow}>
+                        <TouchableOpacity
+                          style={[
+                            styles.cardApproveBtn,
+                            { borderColor: "#16A34A" },
+                          ]}
+                          onPress={() => openDetail(item)}
+                        >
+                          <Text style={styles.cardApproveBtnText}>
+                            {t("leave.approve")}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.cardCancelBtn,
+                            { borderColor: "#EF4444" },
+                          ]}
+                          onPress={() => openDetail(item)}
+                        >
+                          <Text style={styles.cardCancelBtnText}>
+                            {t("leave.reject")}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      item.status === DAY_OFF_STATUS.PENDING.code && (
+                        <TouchableOpacity
+                          style={[
+                            styles.cardCancelBtn,
+                            { borderColor: "#EF4444" },
+                          ]}
+                          onPress={() => handleCancelLeave(item.id)}
+                        >
+                          <Text style={styles.cardCancelBtnText}>
+                            {t("leave.cancelAction")}
+                          </Text>
+                        </TouchableOpacity>
+                      )
                     )}
                   </View>
                 </TouchableOpacity>
@@ -521,34 +892,47 @@ export default function LeaveScreen() {
               color={theme.textSecondary + "40"}
             />
             <Text style={[styles.emptyStateTitle, { color: theme.textMain }]}>
-              {t("leave.emptyTitle")}
+              {isPendingApprovalsFilter
+                ? t("leave.pendingApprovalsEmpty")
+                : t("leave.emptyTitle")}
             </Text>
-            <Text
-              style={[styles.emptyStateDesc, { color: theme.textSecondary }]}
-            >
-              {t("leave.emptyDesc")}
-            </Text>
-            <TouchableOpacity
-              style={[styles.emptyCta, { backgroundColor: theme.primary }]}
-              onPress={() => setIsCreateOpen(true)}
-            >
-              <Text style={styles.emptyCtaText}>{t("leave.createNow")}</Text>
-            </TouchableOpacity>
+            {!isPendingApprovalsFilter && (
+              <>
+                <Text
+                  style={[
+                    styles.emptyStateDesc,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {t("leave.emptyDesc")}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.emptyCta, { backgroundColor: theme.primary }]}
+                  onPress={() => setIsCreateOpen(true)}
+                >
+                  <Text style={styles.emptyCtaText}>
+                    {t("leave.createNow")}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         )}
       </ScrollView>
 
-      <TouchableOpacity
-        style={[
-          styles.fabBtn,
-          { backgroundColor: theme.primary, bottom: 96 + insets.bottom },
-        ]}
-        activeOpacity={0.85}
-        onPress={() => setIsCreateOpen(true)}
-      >
-        <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabBtnText}>{t("leave.create")}</Text>
-      </TouchableOpacity>
+      {!isPendingApprovalsFilter && (
+        <TouchableOpacity
+          style={[
+            styles.fabBtn,
+            { backgroundColor: theme.primary, bottom: 96 + insets.bottom },
+          ]}
+          activeOpacity={0.85}
+          onPress={() => setIsCreateOpen(true)}
+        >
+          <Ionicons name="add" size={20} color="#FFFFFF" />
+          <Text style={styles.fabBtnText}>{t("leave.create")}</Text>
+        </TouchableOpacity>
+      )}
 
       {selectedLeave && (
         <Modal
@@ -570,86 +954,285 @@ export default function LeaveScreen() {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.modalBody}>
-                <View style={styles.detailRow}>
-                  <Text
-                    style={[styles.detailLabel, { color: theme.textSecondary }]}
-                  >
-                    {t("leave.type")}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.detailValue,
-                      { color: theme.textMain, fontWeight: "800" },
-                    ]}
-                  >
-                    {selectedLeave.typeName || t(selectedLeave.typeLabelKey)}
-                  </Text>
-                </View>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.modalBody}>
+                  {selectedLeave.isPendingApproval && (
+                    <View style={styles.detailRow}>
+                      <Text
+                        style={[
+                          styles.detailLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {t("leave.employee")}
+                      </Text>
+                      <Text
+                        style={[styles.detailValue, { color: theme.textMain }]}
+                      >
+                        {selectedLeave.employeeName}
+                      </Text>
+                    </View>
+                  )}
 
-                <View style={styles.detailRow}>
-                  <Text
-                    style={[styles.detailLabel, { color: theme.textSecondary }]}
-                  >
-                    {t("leave.period")}
-                  </Text>
-                  <Text style={[styles.detailValue, { color: theme.textMain }]}>
-                    {selectedLeave.startDate} → {selectedLeave.endDate} (
-                    {t("leave.daysCount", { n: selectedLeave.days })})
-                  </Text>
-                </View>
+                  <View style={styles.detailRow}>
+                    <Text
+                      style={[
+                        styles.detailLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {t("leave.type")}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.detailValue,
+                        { color: theme.textMain, fontWeight: "800" },
+                      ]}
+                    >
+                      {selectedLeave.typeName || t(selectedLeave.typeLabelKey)}
+                    </Text>
+                  </View>
 
-                <View style={styles.detailRow}>
-                  <Text
-                    style={[styles.detailLabel, { color: theme.textSecondary }]}
-                  >
-                    {t("leave.reason")}
-                  </Text>
-                  <Text style={[styles.detailValue, { color: theme.textMain }]}>
-                    {selectedLeave.reason}
-                  </Text>
-                </View>
+                  <View style={styles.detailRow}>
+                    <Text
+                      style={[
+                        styles.detailLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {t("leave.session")}
+                    </Text>
+                    <Text
+                      style={[styles.detailValue, { color: theme.textMain }]}
+                    >
+                      {t(sessionLabelKey(selectedLeave.session))}
+                    </Text>
+                  </View>
 
-                <View style={styles.detailRow}>
-                  <Text
-                    style={[styles.detailLabel, { color: theme.textSecondary }]}
-                  >
-                    {t("leave.approver")}
-                  </Text>
-                  <Text style={[styles.detailValue, { color: theme.textMain }]}>
-                    {selectedLeave.approverName}
-                  </Text>
-                </View>
+                  <View style={styles.detailRow}>
+                    <Text
+                      style={[
+                        styles.detailLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {t("leave.period")}
+                    </Text>
+                    <Text
+                      style={[styles.detailValue, { color: theme.textMain }]}
+                    >
+                      {selectedLeave.startDate} → {selectedLeave.endDate} (
+                      {t("leave.daysCount", { n: selectedLeave.days })})
+                    </Text>
+                  </View>
 
-                <View style={styles.detailRow}>
-                  <Text
-                    style={[styles.detailLabel, { color: theme.textSecondary }]}
-                  >
-                    {t("leave.status")}
-                  </Text>
-                  <Badge action={selectedLeave.statusAction}>
-                    <BadgeText>{t(selectedLeave.statusLabelKey)}</BadgeText>
-                  </Badge>
+                  <View style={styles.detailRow}>
+                    <Text
+                      style={[
+                        styles.detailLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {t("leave.reason")}
+                    </Text>
+                    <Text
+                      style={[styles.detailValue, { color: theme.textMain }]}
+                    >
+                      {selectedLeave.reason}
+                    </Text>
+                  </View>
+
+                  {!!selectedLeave.attachmentUrl && (
+                    <View style={styles.detailRow}>
+                      <Text
+                        style={[
+                          styles.detailLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {t("leave.attachment")}
+                      </Text>
+                      <Text
+                        style={[styles.detailValue, { color: theme.primary }]}
+                        numberOfLines={2}
+                      >
+                        {selectedLeave.attachmentUrl}
+                      </Text>
+                    </View>
+                  )}
+
+                  {!selectedLeave.isPendingApproval && (
+                    <View style={styles.detailRow}>
+                      <Text
+                        style={[
+                          styles.detailLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {t("leave.approver")}
+                      </Text>
+                      <Text
+                        style={[styles.detailValue, { color: theme.textMain }]}
+                      >
+                        {selectedLeave.approverName}
+                      </Text>
+                    </View>
+                  )}
+
+                  {!!selectedLeave.approvedAt &&
+                    selectedLeave.approvedAt !== "--/--/----" && (
+                      <View style={styles.detailRow}>
+                        <Text
+                          style={[
+                            styles.detailLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {t("leave.approvedAt")}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.detailValue,
+                            { color: theme.textMain },
+                          ]}
+                        >
+                          {selectedLeave.approvedAt}
+                        </Text>
+                      </View>
+                    )}
+
+                  {!!selectedLeave.approverNote && (
+                    <View style={styles.detailRow}>
+                      <Text
+                        style={[
+                          styles.detailLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {t("leave.approverNote")}
+                      </Text>
+                      <Text
+                        style={[styles.detailValue, { color: theme.textMain }]}
+                      >
+                        {selectedLeave.approverNote}
+                      </Text>
+                    </View>
+                  )}
+
+                  {!!selectedLeave.cancelReason && (
+                    <View style={styles.detailRow}>
+                      <Text
+                        style={[
+                          styles.detailLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {t("leave.cancelReason")}
+                      </Text>
+                      <Text
+                        style={[styles.detailValue, { color: theme.textMain }]}
+                      >
+                        {selectedLeave.cancelReason}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.detailRow}>
+                    <Text
+                      style={[
+                        styles.detailLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {t("leave.status")}
+                    </Text>
+                    <Badge action={selectedLeave.statusAction}>
+                      <BadgeText>{t(selectedLeave.statusLabelKey)}</BadgeText>
+                    </Badge>
+                  </View>
+
+                  {selectedLeave.isPendingApproval && (
+                    <View style={styles.inputGroup}>
+                      <Text
+                        style={[
+                          styles.inputLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {t("leave.approverNote")}
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.textInput,
+                          {
+                            height: 72,
+                            color: theme.textMain,
+                            borderColor: theme.border,
+                            backgroundColor: theme.background,
+                          },
+                        ]}
+                        placeholder={t("leave.approverNotePlaceholder")}
+                        placeholderTextColor={theme.textSecondary}
+                        multiline
+                        value={approverNote}
+                        onChangeText={setApproverNote}
+                      />
+                    </View>
+                  )}
                 </View>
-              </View>
+              </ScrollView>
 
               <View style={styles.modalFooter}>
-                {selectedLeave.status === DAY_OFF_STATUS.PENDING.code && (
-                  <TouchableOpacity
-                    style={[styles.cancelBtn, { borderColor: "#EF4444" }]}
-                    onPress={() => handleCancelLeave(selectedLeave.id)}
-                  >
-                    <Text style={styles.cancelBtnText}>
-                      {t("leave.cancelRequest")}
-                    </Text>
-                  </TouchableOpacity>
+                {selectedLeave.isPendingApproval ? (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.cancelBtn, { borderColor: "#EF4444" }]}
+                      onPress={() => handleReject(selectedLeave.id)}
+                      disabled={submitting}
+                    >
+                      <Text style={styles.cancelBtnText}>
+                        {t("leave.reject")}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.closeBtn, { backgroundColor: "#16A34A" }]}
+                      onPress={() => handleApprove(selectedLeave.id)}
+                      disabled={submitting}
+                    >
+                      {submitting ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.closeBtnText}>
+                          {t("leave.approve")}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    {selectedLeave.status === DAY_OFF_STATUS.PENDING.code && (
+                      <TouchableOpacity
+                        style={[styles.cancelBtn, { borderColor: "#EF4444" }]}
+                        onPress={() => handleCancelLeave(selectedLeave.id)}
+                      >
+                        <Text style={styles.cancelBtnText}>
+                          {t("leave.cancelRequest")}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={[
+                        styles.closeBtn,
+                        { backgroundColor: theme.primary },
+                      ]}
+                      onPress={() => setIsDetailOpen(false)}
+                    >
+                      <Text style={styles.closeBtnText}>
+                        {t("common.close")}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
                 )}
-                <TouchableOpacity
-                  style={[styles.closeBtn, { backgroundColor: theme.primary }]}
-                  onPress={() => setIsDetailOpen(false)}
-                >
-                  <Text style={styles.closeBtnText}>{t("common.close")}</Text>
-                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -688,13 +1271,58 @@ export default function LeaveScreen() {
                 >
                   {t("leave.formType")}
                 </Text>
+                {formOptions.length === 0 ? (
+                  <Text
+                    style={[styles.balanceSubText, { color: theme.warning }]}
+                  >
+                    {t("leave.noConfigs")}
+                  </Text>
+                ) : (
+                  <View style={styles.pickerRow}>
+                    {formOptions.map((option) => {
+                      const active = isOptionActive(option);
+                      const key = option.id || option.code || option.dayOffType;
+                      return (
+                        <TouchableOpacity
+                          key={key}
+                          style={[
+                            styles.pickerChip,
+                            active && {
+                              backgroundColor: theme.primary,
+                              borderColor: theme.primary,
+                            },
+                          ]}
+                          onPress={() => selectFormOption(option)}
+                        >
+                          <Text
+                            style={[
+                              styles.pickerChipText,
+                              active
+                                ? { color: "#FFFFFF" }
+                                : { color: theme.textMain },
+                            ]}
+                          >
+                            {typeLabel(option)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text
+                  style={[styles.inputLabel, { color: theme.textSecondary }]}
+                >
+                  {t("leave.session")}
+                </Text>
                 <View style={styles.pickerRow}>
-                  {formOptions.map((option) => {
-                    const active = isOptionActive(option);
-                    const key = option.id || option.code || option.dayOffType;
+                  {SESSION_OPTIONS.map((session) => {
+                    const active = formSession === session;
                     return (
                       <TouchableOpacity
-                        key={key}
+                        key={session}
                         style={[
                           styles.pickerChip,
                           active && {
@@ -702,7 +1330,7 @@ export default function LeaveScreen() {
                             borderColor: theme.primary,
                           },
                         ]}
-                        onPress={() => selectFormOption(option)}
+                        onPress={() => setSession(session)}
                       >
                         <Text
                           style={[
@@ -712,7 +1340,7 @@ export default function LeaveScreen() {
                               : { color: theme.textMain },
                           ]}
                         >
-                          {typeLabel(option)}
+                          {t(sessionLabelKey(session))}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -733,7 +1361,11 @@ export default function LeaveScreen() {
                   presentation="inline"
                   onChange={(iso) => {
                     setFormStartDate(iso);
-                    if (formEndDate && formEndDate < iso) {
+                    if (
+                      formSession === "AM" ||
+                      formSession === "PM" ||
+                      (formEndDate && formEndDate < iso)
+                    ) {
                       setFormEndDate(iso);
                     }
                   }}
@@ -752,8 +1384,26 @@ export default function LeaveScreen() {
                   placeholder={t("leave.datePlaceholder")}
                   presentation="inline"
                   minDate={formStartDate || undefined}
-                  onChange={setFormEndDate}
+                  onChange={(iso) => {
+                    if (formSession === "AM" || formSession === "PM") {
+                      setFormEndDate(formStartDate || iso);
+                      return;
+                    }
+                    setFormEndDate(iso);
+                  }}
                 />
+              </View>
+
+              <View style={styles.previewRow}>
+                {previewLoading ? (
+                  <ActivityIndicator size="small" color={theme.primary} />
+                ) : (
+                  <Text style={[styles.previewText, { color: theme.primary }]}>
+                    {t("leave.previewDays", {
+                      n: formatDays(previewTotalDays ?? 0),
+                    })}
+                  </Text>
+                )}
               </View>
 
               <View style={styles.inputGroup}>
@@ -780,6 +1430,59 @@ export default function LeaveScreen() {
                   onChangeText={setFormReason}
                 />
               </View>
+
+              <View style={styles.inputGroup}>
+                <Text
+                  style={[styles.inputLabel, { color: theme.textSecondary }]}
+                >
+                  {requireAttachment
+                    ? t("leave.attachmentLabelRequired")
+                    : t("leave.attachmentLabel")}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    {
+                      color: theme.textMain,
+                      borderColor: theme.border,
+                      backgroundColor: theme.background,
+                    },
+                  ]}
+                  placeholder={t("leave.attachmentPlaceholder")}
+                  placeholderTextColor={theme.textSecondary}
+                  autoCapitalize="none"
+                  value={formAttachmentUrl}
+                  onChangeText={setFormAttachmentUrl}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.uploadBtn,
+                    {
+                      borderColor: theme.border,
+                      backgroundColor: theme.background,
+                    },
+                  ]}
+                  onPress={handleUploadAttachment}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <ActivityIndicator size="small" color={theme.primary} />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name="cloud-upload-outline"
+                        size={16}
+                        color={theme.primary}
+                      />
+                      <Text
+                        style={[styles.uploadBtnText, { color: theme.primary }]}
+                      >
+                        {t("leave.uploadAttachment")}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -801,7 +1504,7 @@ export default function LeaveScreen() {
                   { backgroundColor: theme.primary },
                 ]}
                 onPress={handleCreateSubmit}
-                disabled={submitting}
+                disabled={submitting || uploading}
               >
                 {submitting ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -850,6 +1553,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: { height: "100%", borderRadius: 4 },
+  balancePending: { fontSize: 12, fontWeight: "700", marginBottom: 6 },
   balanceSubText: { fontSize: 12, fontWeight: "500" },
   filterScroll: { paddingBottom: 16, gap: 8 },
   filterChip: {
@@ -882,6 +1586,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   leaveTypeName: { fontSize: 14, fontWeight: "700" },
+  employeeText: { fontSize: 12, fontWeight: "600", marginBottom: 6 },
   dateRangeText: { fontSize: 13, fontWeight: "500", marginBottom: 12 },
   cardFooter: {
     flexDirection: "row",
@@ -889,6 +1594,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cardFooterLabel: { fontSize: 10, fontWeight: "500", flex: 1, marginRight: 8 },
+  cardActionRow: { flexDirection: "row", gap: 6 },
+  cardApproveBtn: {
+    borderWidth: 1.2,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  cardApproveBtnText: { color: "#16A34A", fontSize: 11, fontWeight: "700" },
   cardCancelBtn: {
     borderWidth: 1.2,
     borderRadius: 8,
@@ -991,6 +1704,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   pickerChipText: { fontSize: 11, fontWeight: "700" },
+  previewRow: { marginBottom: 14, minHeight: 20, justifyContent: "center" },
+  previewText: { fontSize: 14, fontWeight: "800" },
   textInput: {
     height: 48,
     borderWidth: 1.5,
@@ -999,6 +1714,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
   },
+  uploadBtn: {
+    marginTop: 4,
+    height: 42,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  uploadBtnText: { fontSize: 13, fontWeight: "700" },
   modalCancelBtn: {
     flex: 1,
     height: 46,

@@ -13,7 +13,7 @@ export interface AttendanceStatusDetails {
 export const getAttendanceStatusKey = (
   isOnLeave: boolean,
   isCheckedIn: boolean,
-  isCompleted: boolean
+  isCompleted: boolean,
 ): AttendanceStatusType => {
   if (isOnLeave) return AttendanceStatusType.ON_LEAVE;
   if (isCompleted) return AttendanceStatusType.COMPLETED;
@@ -22,7 +22,7 @@ export const getAttendanceStatusKey = (
 };
 
 export const getAttendanceStatusDetails = (
-  status: AttendanceStatusType
+  status: AttendanceStatusType,
 ): AttendanceStatusDetails => {
   switch (status) {
     case AttendanceStatusType.ON_LEAVE:

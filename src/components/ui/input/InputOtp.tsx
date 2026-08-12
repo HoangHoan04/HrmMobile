@@ -17,9 +17,7 @@ export const InputOtp = ({
   const theme = Colors[colorScheme];
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
-  const refs = useRef(
-    Array.from({ length }, () => createRef<any>())
-  );
+  const refs = useRef(Array.from({ length }, () => createRef<any>()));
 
   const handleChange = (text: string, index: number) => {
     const chars = value.split("");
@@ -50,7 +48,11 @@ export const InputOtp = ({
             style={{
               width: 48,
               height: 48,
-              borderColor: isFocused ? theme.primary : isFilled ? theme.border : theme.border,
+              borderColor: isFocused
+                ? theme.primary
+                : isFilled
+                  ? theme.border
+                  : theme.border,
               backgroundColor: theme.cardBg,
               borderWidth: 1,
               borderRadius: 12,

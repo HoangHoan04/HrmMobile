@@ -233,9 +233,7 @@ function MockupIllustration({
             <Text style={styles.cardHeaderBadgeText}>2</Text>
           </View>
         </View>
-        <Text style={styles.cardHeaderSub}>
-          {t("onboarding.mockSchedule")}
-        </Text>
+        <Text style={styles.cardHeaderSub}>{t("onboarding.mockSchedule")}</Text>
 
         <View style={styles.cardListItem}>
           <View style={styles.cardListIcon}>

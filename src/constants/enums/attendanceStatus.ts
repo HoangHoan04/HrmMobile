@@ -1,12 +1,7 @@
 import { enumData } from "@/constants/enums/enumData";
 
 export type AttendanceStatusCode =
-  | "ON_TIME"
-  | "LATE"
-  | "EARLY"
-  | "LEAVE"
-  | "ABSENT"
-  | "INCOMPLETE";
+  "ON_TIME" | "LATE" | "EARLY" | "LEAVE" | "ABSENT" | "INCOMPLETE";
 
 export type AttendanceStatusItem =
   (typeof enumData.ATTENDANCE_STATUS)[keyof typeof enumData.ATTENDANCE_STATUS];

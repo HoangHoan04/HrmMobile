@@ -1,10 +1,11 @@
-import { showToastError } from "@/helper/ToastEventEmitter";
 import { t } from "@/features/common";
 import { isNetworkError } from "@/features/common/apiError";
+import { showToastError } from "@/helper/ToastEventEmitter";
 import tokenCache from "@/utils/token";
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
 import * as Updates from "expo-updates";
 import { endpoints } from "./endpoints";
+import { notifySessionExpired, notifyTokenRefreshed } from "./sessionBridge";
 
 let isRefreshing = false;
 let failedQueue: {
@@ -20,12 +21,28 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+function isAuthRefreshUrl(url?: string): boolean {
+  if (!url) return false;
+  return (
+    url.includes(endpoints.auth.refreshToken) ||
+    url.includes(endpoints.auth.login)
+  );
+}
+
+function hasAuthorizationHeader(
+  headers: AxiosRequestConfig["headers"],
+): boolean {
+  if (!headers) return false;
+  const anyHeaders = headers as Record<string, unknown>;
+  return !!(anyHeaders.Authorization || anyHeaders.authorization);
+}
+
 const initApi = (url?: string, headers = {}) => {
   if (!url) throw new Error("URL is required");
   const { runtimeVersion, createdAt } = Updates;
   const requestNoToken = axios.create({
     baseURL: url,
-    timeout: 10000,
+    timeout: 15000,
     headers: {
       "Content-Type": "application/json",
     },
@@ -39,14 +56,15 @@ const initApi = (url?: string, headers = {}) => {
       refreshToken: rfToken,
     });
 
-    const accessToken = data?.token || data?.accessToken;
+    const accessToken = data?.token || data?.accessToken || data?.Token;
     if (!accessToken) {
       throw new Error("Invalid refresh response");
     }
 
-    const nextRfToken = data.refreshToken || rfToken;
+    const nextRfToken = data.refreshToken || data.RefreshToken || rfToken;
     const currentUser = tokenCache.getUser() || {};
     await tokenCache.setAuthData(accessToken, nextRfToken, currentUser);
+    notifyTokenRefreshed(accessToken);
 
     return accessToken;
   };
@@ -85,21 +103,24 @@ const initApi = (url?: string, headers = {}) => {
 
       const status =
         error.response?.status || (error.response?.data as any)?.httpCode;
-      const hasAuthHeader =
-        originalRequest?.headers &&
-        (originalRequest.headers.Authorization ||
-          originalRequest.headers.authorization);
+      const canTryRefresh =
+        !!tokenCache.getRefreshToken() &&
+        !isAuthRefreshUrl(originalRequest?.url) &&
+        (hasAuthorizationHeader(originalRequest?.headers) ||
+          !!tokenCache.getAccessToken());
 
       if (
         (status === 401 || status === 403) &&
         !originalRequest?._retry &&
-        hasAuthHeader
+        canTryRefresh
       ) {
         if (isRefreshing) {
           return new Promise((resolve, reject) => {
             failedQueue.push({
               resolve: (token) => {
-                originalRequest.headers!.Authorization = `Bearer ${token}`;
+                originalRequest.headers = originalRequest.headers || {};
+                (originalRequest.headers as any).Authorization =
+                  `Bearer ${token}`;
                 resolve(api(originalRequest));
               },
               reject,
@@ -113,15 +134,23 @@ const initApi = (url?: string, headers = {}) => {
         try {
           const newToken = await refreshToken();
           processQueue(null, newToken);
-          originalRequest.headers!.Authorization = `Bearer ${newToken}`;
+          originalRequest.headers = originalRequest.headers || {};
+          (originalRequest.headers as any).Authorization = `Bearer ${newToken}`;
           return api(originalRequest);
         } catch (err) {
           processQueue(err, null);
-          await tokenCache.clear();
+
           if (isNetworkError(err)) {
             showToastError(t("common.serverUnavailable"));
-          } else {
-            showToastError("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại!");
+            return Promise.reject(err);
+          }
+
+          await tokenCache.clear();
+          await notifySessionExpired();
+          if (!originalRequest?.skipErrorToast) {
+            showToastError(
+              "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại!",
+            );
           }
           return Promise.reject(err);
         } finally {
@@ -129,7 +158,15 @@ const initApi = (url?: string, headers = {}) => {
         }
       }
 
-      // API down / unreachable — always toast (even when skipErrorToast)
+      if (
+        (status === 401 || status === 403) &&
+        !tokenCache.getRefreshToken() &&
+        tokenCache.getAccessToken()
+      ) {
+        await tokenCache.clear();
+        await notifySessionExpired();
+      }
+
       if (isNetworkError(error)) {
         showToastError(t("common.serverUnavailable"));
         return Promise.reject(error);

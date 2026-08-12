@@ -38,8 +38,15 @@ export const InputPassword = ({
       style={style}
       leftSlot={leftSlot}
       rightSlot={
-        <TouchableOpacity style={{ paddingHorizontal: 8 }} onPress={() => setShowPassword(!showPassword)}>
-          <Feather name={showPassword ? "eye" : "eye-off"} size={20} color={theme.textSecondary} />
+        <TouchableOpacity
+          style={{ paddingHorizontal: 8 }}
+          onPress={() => setShowPassword(!showPassword)}
+        >
+          <Feather
+            name={showPassword ? "eye" : "eye-off"}
+            size={20}
+            color={theme.textSecondary}
+          />
         </TouchableOpacity>
       }
     />

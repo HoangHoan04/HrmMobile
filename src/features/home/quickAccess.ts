@@ -12,7 +12,6 @@ export type QuickAccessItem = {
 
 type TranslateFn = (key: string) => string;
 
-/** Colors aligned with Colors.primary / semantic tokens */
 export function getQuickAccessItems(t: TranslateFn): QuickAccessItem[] {
   return [
     {

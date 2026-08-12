@@ -34,7 +34,6 @@ function messageFromBody(
   return null;
 }
 
-/** True when the API is unreachable / not running / timed out. */
 export function isNetworkError(error: unknown): boolean {
   if (axios.isAxiosError(error)) {
     if (error.code === "ERR_CANCELED") return false;

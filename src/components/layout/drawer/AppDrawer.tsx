@@ -1,5 +1,8 @@
 import { showAlert, showConfirm } from "@/components/ui/confirm";
-import { getQuickAccessItems, QuickAccessItem } from "@/features/home/quickAccess";
+import {
+  getQuickAccessItems,
+  QuickAccessItem,
+} from "@/features/home/quickAccess";
 import { useAttendance, useProfile } from "@/hooks";
 import { useAuthStore } from "@/store/authStore";
 import { useDrawerStore } from "@/store/drawerStore";
@@ -266,11 +269,9 @@ export function AppDrawer() {
       const result = await ImagePicker.requestCameraPermissionsAsync();
       setCameraPerm(result.granted);
       if (!result.granted) {
-        showAlert(
-          t("permissions.cameraTitle"),
-          t("permissions.cameraBody"),
-          { variant: "warning" },
-        );
+        showAlert(t("permissions.cameraTitle"), t("permissions.cameraBody"), {
+          variant: "warning",
+        });
       }
     } catch {
       setCameraPerm(false);
@@ -606,10 +607,7 @@ export function AppDrawer() {
                   activeOpacity={0.7}
                 >
                   <View
-                    style={[
-                      styles.drawerRowIcon,
-                      { backgroundColor: item.bg },
-                    ]}
+                    style={[styles.drawerRowIcon, { backgroundColor: item.bg }]}
                   >
                     {renderQuickIcon(item, 16)}
                   </View>

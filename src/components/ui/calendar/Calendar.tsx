@@ -32,7 +32,6 @@ export type CalendarProps = {
   onMonthChange?: (month: Date) => void;
   dayMeta?: Record<number, CalendarDayMeta>;
   onDayPress?: (day: Date, meta?: CalendarDayMeta) => void;
-  /** Highlight selected day (Date or yyyy-MM-dd). */
   selectedDate?: Date | string | null;
   weekdays?: string[];
   formatMonthLabel?: (month: Date) => string;
@@ -306,11 +305,12 @@ export function Calendar({
                     styles.dayNumberText,
                     {
                       color: textColor,
-                      fontWeight: isToday || isSelected
-                        ? "800"
-                        : inCurrentMonth
-                          ? "700"
-                          : "500",
+                      fontWeight:
+                        isToday || isSelected
+                          ? "800"
+                          : inCurrentMonth
+                            ? "700"
+                            : "500",
                       fontSize: isToday || isSelected ? 14 : 13,
                     },
                     dayTextStyle,

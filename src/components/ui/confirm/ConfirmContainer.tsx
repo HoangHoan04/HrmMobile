@@ -186,10 +186,7 @@ export function ConfirmContainer() {
           )}
 
           <View
-            style={[
-              styles.actions,
-              buttons.length > 2 && styles.actionsColumn,
-            ]}
+            style={[styles.actions, buttons.length > 2 && styles.actionsColumn]}
           >
             {buttons.map((button, index) => {
               const isCancel = button.style === "cancel";

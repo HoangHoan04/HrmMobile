@@ -22,11 +22,32 @@ export function Table<T extends Record<string, any>>({
   const theme = Colors[colorScheme];
 
   return (
-    <View style={{ backgroundColor: theme.cardBg, borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: theme.border }}>
-      <View style={{ flexDirection: "row", backgroundColor: theme.background, padding: 12, gap: 16 }}>
+    <View
+      style={{
+        backgroundColor: theme.cardBg,
+        borderRadius: 12,
+        overflow: "hidden",
+        borderWidth: 1,
+        borderColor: theme.border,
+      }}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          backgroundColor: theme.background,
+          padding: 12,
+          gap: 16,
+        }}
+      >
         {columns.map((col, idx) => (
           <View key={idx} style={{ flex: col.flex ?? 1 }}>
-            <Text style={{ fontWeight: "bold", color: theme.textMain, fontSize: 14 }}>
+            <Text
+              style={{
+                fontWeight: "bold",
+                color: theme.textMain,
+                fontSize: 14,
+              }}
+            >
               {col.header}
             </Text>
           </View>

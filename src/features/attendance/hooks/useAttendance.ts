@@ -1,12 +1,6 @@
 import { showAlert, showConfirm } from "@/components/ui/confirm";
-import {
-  showToastError,
-  showToastSuccess,
-} from "@/helper/ToastEventEmitter";
-import {
-  getApiErrorMessage,
-  t,
-} from "@/features/common";
+import { showToastError, showToastSuccess } from "@/helper/ToastEventEmitter";
+import { getApiErrorMessage, t } from "@/features/common";
 import { rootApi } from "@/services";
 import { endpoints } from "@/services/api/endpoints";
 import { MobileMonthDto, MobileTodayDto } from "@/features/attendance/types";
@@ -67,8 +61,12 @@ function isLocationSetupError(message: string): boolean {
 
 export function useAttendance() {
   const queryClient = useQueryClient();
-  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(() =>
+    new Date().getFullYear(),
+  );
+  const [selectedMonth, setSelectedMonth] = useState(
+    () => new Date().getMonth() + 1,
+  );
 
   const {
     data: today = null,
@@ -171,25 +169,34 @@ export function useAttendance() {
     },
   });
 
-  const fetchMonth = useCallback(async (year: number, monthNum: number) => {
-    setSelectedYear(year);
-    setSelectedMonth(monthNum);
-    const result = await queryClient.fetchQuery({
-      queryKey: ["attendance", "month", year, monthNum],
-      queryFn: async () => {
-        const { data } = await rootApi.post(
-          endpoints.timekeeping.month,
-          { year, month: monthNum },
-          { skipErrorToast: true } as any,
-        );
-        return data as MobileMonthDto;
-      },
-    });
-    return result;
-  }, [queryClient]);
+  const fetchMonth = useCallback(
+    async (year: number, monthNum: number) => {
+      setSelectedYear(year);
+      setSelectedMonth(monthNum);
+      const result = await queryClient.fetchQuery({
+        queryKey: ["attendance", "month", year, monthNum],
+        queryFn: async () => {
+          const { data } = await rootApi.post(
+            endpoints.timekeeping.month,
+            { year, month: monthNum },
+            { skipErrorToast: true } as any,
+          );
+          return data as MobileMonthDto;
+        },
+      });
+      return result;
+    },
+    [queryClient],
+  );
 
-  const checkIn = useCallback(() => punchMutation.mutateAsync("checkIn"), [punchMutation]);
-  const checkOut = useCallback(() => punchMutation.mutateAsync("checkOut"), [punchMutation]);
+  const checkIn = useCallback(
+    () => punchMutation.mutateAsync("checkIn"),
+    [punchMutation],
+  );
+  const checkOut = useCallback(
+    () => punchMutation.mutateAsync("checkOut"),
+    [punchMutation],
+  );
 
   return {
     today,
@@ -199,7 +206,10 @@ export function useAttendance() {
     punching: punchMutation.isPending,
     error:
       todayError || monthError
-        ? getApiErrorMessage(todayError || monthError, "attendance.genericError")
+        ? getApiErrorMessage(
+            todayError || monthError,
+            "attendance.genericError",
+          )
         : null,
     fetchToday,
     fetchMonth,

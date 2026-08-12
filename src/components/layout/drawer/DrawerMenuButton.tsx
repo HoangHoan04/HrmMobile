@@ -10,7 +10,6 @@ import {
 } from "react-native";
 
 type DrawerMenuButtonProps = {
-  /** onPrimary: white icon on translucent circle (home blue header). surface: themed bordered button. */
   variant?: "onPrimary" | "surface";
   style?: StyleProp<ViewStyle>;
   size?: number;

@@ -56,6 +56,13 @@ export default function DashboardScreen() {
     return `${start} – ${end}`;
   }, [today?.expectedStart, today?.expectedEnd]);
 
+  const breakLabel = useMemo(() => {
+    const start = formatClock(today?.expectedBreakStart);
+    const end = formatClock(today?.expectedBreakEnd);
+    if (start === "--:--" && end === "--:--") return null;
+    return `${start} – ${end}`;
+  }, [today?.expectedBreakStart, today?.expectedBreakEnd]);
+
   const canCheckIn = !!today?.canCheckIn;
   const canCheckOut = !!today?.canCheckOut;
   const showCheckOutAction =
@@ -247,7 +254,6 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.body}>
-          {/* Punch card */}
           <View
             style={[
               styles.card,
@@ -267,6 +273,26 @@ export default function DashboardScreen() {
                 <Text style={[styles.cardTitle, { color: theme.textMain }]}>
                   {shiftLabel}
                 </Text>
+                {breakLabel ? (
+                  <Text
+                    style={[
+                      styles.cardEyebrow,
+                      { color: theme.textSecondary, marginTop: 4 },
+                    ]}
+                  >
+                    {t("home.lunchBreak")}: {breakLabel}
+                  </Text>
+                ) : null}
+                {today && today.isScheduledWorkDay === false ? (
+                  <Text
+                    style={[
+                      styles.cardEyebrow,
+                      { color: theme.warning, marginTop: 4 },
+                    ]}
+                  >
+                    {t("home.notWorkDay")}
+                  </Text>
+                ) : null}
               </View>
               <View
                 style={[
@@ -461,7 +487,6 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          {/* Month stats */}
           <View style={styles.statsRow}>
             {[
               {
@@ -514,7 +539,6 @@ export default function DashboardScreen() {
             ))}
           </View>
 
-          {/* Quick access */}
           <View
             style={[
               styles.card,
@@ -555,7 +579,6 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          {/* Today summary */}
           <View
             style={[
               styles.card,
@@ -580,9 +603,7 @@ export default function DashboardScreen() {
                     ? `${t("home.checkedInAt")} ${checkInTime}`
                     : t("home.notCheckedInYet"),
                 color:
-                  checkInTime !== "--:--"
-                    ? theme.success
-                    : theme.textSecondary,
+                  checkInTime !== "--:--" ? theme.success : theme.textSecondary,
                 iconColor: theme.warning,
               },
               {
@@ -593,9 +614,7 @@ export default function DashboardScreen() {
                     ? `${t("home.checkedOutAt")} ${checkOutTime}`
                     : t("home.notCheckedInYet"),
                 color:
-                  checkOutTime !== "--:--"
-                    ? theme.danger
-                    : theme.textSecondary,
+                  checkOutTime !== "--:--" ? theme.danger : theme.textSecondary,
                 iconColor: theme.primary,
               },
               {

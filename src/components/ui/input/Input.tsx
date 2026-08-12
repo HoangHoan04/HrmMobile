@@ -41,8 +41,13 @@ export const Input = ({
         {
           flexDirection: "row",
           alignItems: "center",
-          borderColor: isInvalid ? theme.danger : isFocused ? theme.primary : theme.border,
-          backgroundColor: isDisabled || isReadOnly ? theme.background : theme.cardBg,
+          borderColor: isInvalid
+            ? theme.danger
+            : isFocused
+              ? theme.primary
+              : theme.border,
+          backgroundColor:
+            isDisabled || isReadOnly ? theme.background : theme.cardBg,
           borderWidth: 1,
           borderRadius: 12,
           height: 48,

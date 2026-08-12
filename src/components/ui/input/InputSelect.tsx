@@ -1,7 +1,14 @@
 import React, { useState } from "react";
 import { Colors } from "@/constants/common/Colors";
 import { Feather } from "@expo/vector-icons";
-import { useColorScheme, View, Text, TouchableOpacity, Modal, FlatList } from "react-native";
+import {
+  useColorScheme,
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  FlatList,
+} from "react-native";
 
 interface Option {
   label: string;
@@ -41,7 +48,11 @@ export const InputSelect = ({
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          borderColor: isInvalid ? theme.danger : isOpen ? theme.primary : theme.border,
+          borderColor: isInvalid
+            ? theme.danger
+            : isOpen
+              ? theme.primary
+              : theme.border,
           backgroundColor: isDisabled ? theme.background : theme.cardBg,
           borderWidth: 1,
           borderRadius: 12,
@@ -50,7 +61,12 @@ export const InputSelect = ({
           opacity: isDisabled ? 0.6 : 1,
         }}
       >
-        <Text style={{ color: selectedOption ? theme.textMain : theme.textSecondary, fontSize: 14 }}>
+        <Text
+          style={{
+            color: selectedOption ? theme.textMain : theme.textSecondary,
+            fontSize: 14,
+          }}
+        >
           {selectedOption ? selectedOption.label : placeholder}
         </Text>
         <Feather name="chevron-down" size={20} color={theme.textSecondary} />
@@ -84,7 +100,8 @@ export const InputSelect = ({
                     padding: 16,
                     borderBottomWidth: 1,
                     borderBottomColor: theme.background,
-                    backgroundColor: item.value === value ? theme.background : "transparent",
+                    backgroundColor:
+                      item.value === value ? theme.background : "transparent",
                   }}
                   onPress={() => {
                     if (onValueChange) onValueChange(item.value);
@@ -93,7 +110,8 @@ export const InputSelect = ({
                 >
                   <Text
                     style={{
-                      color: item.value === value ? theme.primary : theme.textMain,
+                      color:
+                        item.value === value ? theme.primary : theme.textMain,
                       fontWeight: item.value === value ? "bold" : "normal",
                     }}
                   >

@@ -18,7 +18,16 @@ export const Progress = ({
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
 
-  const height = size === "xs" ? 4 : size === "sm" ? 6 : size === "lg" ? 12 : size === "xl" ? 16 : 8;
+  const height =
+    size === "xs"
+      ? 4
+      : size === "sm"
+        ? 6
+        : size === "lg"
+          ? 12
+          : size === "xl"
+            ? 16
+            : 8;
 
   return (
     <View

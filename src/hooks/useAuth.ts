@@ -1,6 +1,10 @@
 import { ROUTES } from "@/constants/common/routes";
-import { getApiErrorMessage } from "@/features/common";
-import { normalizeMobileProfile, MobileProfile } from "@/features/profile/types";
+import { normalizeStringList } from "@/constants/permissions";
+import { getApiErrorMessage, isNetworkError } from "@/features/common";
+import {
+  MobileProfile,
+  normalizeMobileProfile,
+} from "@/features/profile/types";
 import { showToastError, showToastSuccess } from "@/helper/ToastEventEmitter";
 import { rootApi } from "@/services";
 import { endpoints } from "@/services/api/endpoints";
@@ -12,6 +16,21 @@ import { useState } from "react";
 
 function extractToken(data: any): string | null {
   return data?.token || data?.accessToken || data?.Token || null;
+}
+
+function buildAuthUser(data: any, previous?: any) {
+  return {
+    ...(previous || {}),
+    username: data?.username || data?.Username || previous?.username,
+    type: data?.type || data?.Type || previous?.type,
+    employeeId: data?.employeeId || data?.EmployeeId || previous?.employeeId,
+    companyId: data?.companyId || data?.CompanyId || previous?.companyId,
+    branchId: data?.branchId || data?.BranchId || previous?.branchId,
+    roles: normalizeStringList(data?.roles ?? data?.Roles ?? previous?.roles),
+    permissions: normalizeStringList(
+      data?.permissions ?? data?.Permissions ?? previous?.permissions,
+    ),
+  };
 }
 
 export function useLogin() {
@@ -36,13 +55,7 @@ export function useLogin() {
       const refreshToken = data?.refreshToken || data?.RefreshToken;
 
       if (data && token && refreshToken) {
-        const user = data.user || {
-          username: data.username || data.Username,
-          type: data.type || data.Type,
-          employeeId: data.employeeId || data.EmployeeId,
-          companyId: data.companyId || data.CompanyId,
-          branchId: data.branchId || data.BranchId,
-        };
+        const user = buildAuthUser(data.user || data);
         await login(token, refreshToken, user);
         router.replace(ROUTES.tabs.home);
       } else {
@@ -155,6 +168,12 @@ export function useProfile() {
   } = useQuery<MobileProfile | null>({
     queryKey: ["profile"],
     enabled: isAuthenticated,
+    retry: (failureCount, error: any) => {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) return false;
+      if (isNetworkError(error)) return failureCount < 1;
+      return failureCount < 2;
+    },
     queryFn: async () => {
       try {
         const { data } = await rootApi.get(endpoints.auth.me, {
@@ -162,26 +181,47 @@ export function useProfile() {
         } as any);
 
         const normalized = normalizeMobileProfile(data);
-        const employeeId = normalized?.employeeId;
-        if (employeeId) {
-          const currentUser = useAuthStore.getState().user;
-          if (currentUser?.employeeId !== employeeId) {
-            const nextUser = {
-              ...currentUser,
-              employeeId,
-              companyId: normalized?.companyId ?? currentUser?.companyId,
-              branchId: normalized?.branchId ?? currentUser?.branchId,
-            };
-            await tokenCache.setUser(nextUser);
-            useAuthStore.setState({ user: nextUser });
-          }
+        const currentUser = useAuthStore.getState().user;
+        const nextUser = buildAuthUser(
+          {
+            ...data,
+            employeeId: normalized?.employeeId ?? data?.employeeId,
+            companyId: normalized?.companyId ?? data?.companyId,
+            branchId: normalized?.branchId ?? data?.branchId,
+            type: data?.type ?? currentUser?.type,
+            username: data?.username ?? currentUser?.username,
+          },
+          currentUser,
+        );
+
+        const changed =
+          JSON.stringify(nextUser.roles || []) !==
+            JSON.stringify(currentUser?.roles || []) ||
+          JSON.stringify(nextUser.permissions || []) !==
+            JSON.stringify(currentUser?.permissions || []) ||
+          nextUser.employeeId !== currentUser?.employeeId;
+
+        if (changed) {
+          await tokenCache.setUser(nextUser);
+          useAuthStore.setState({ user: nextUser });
         }
         return normalized;
       } catch (error: any) {
-        console.error("[Mobile useProfile] Failed:", error.message);
-        if (error.response?.status === 401) {
-          await logout();
+        const status = error?.response?.status;
+
+        if (status === 401 || status === 403) {
+          if (useAuthStore.getState().isAuthenticated) {
+            await logout();
+          }
+          return null;
         }
+
+        if (isNetworkError(error)) {
+          console.warn("[Mobile useProfile] Network:", error.message);
+          return null;
+        }
+
+        console.warn("[Mobile useProfile] Failed:", error.message);
         throw error;
       }
     },

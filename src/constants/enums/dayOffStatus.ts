@@ -1,10 +1,7 @@
 import { enumData } from "@/constants/enums/enumData";
 
 export type DayOffStatusCode =
-  | "PENDING"
-  | "APPROVED"
-  | "REJECTED"
-  | "CANCELLED";
+  "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 
 export type DayOffStatusItem =
   (typeof enumData.DAY_OFF_STATUS)[keyof typeof enumData.DAY_OFF_STATUS];
@@ -17,15 +14,11 @@ const BY_CODE = Object.values(enumData.DAY_OFF_STATUS).reduce(
   {} as Record<DayOffStatusCode, DayOffStatusItem>,
 );
 
-export function isDayOffStatusCode(
-  value: unknown,
-): value is DayOffStatusCode {
+export function isDayOffStatusCode(value: unknown): value is DayOffStatusCode {
   return typeof value === "string" && value in BY_CODE;
 }
 
-export function resolveDayOffStatus(
-  status?: string | null,
-): DayOffStatusItem {
+export function resolveDayOffStatus(status?: string | null): DayOffStatusItem {
   const key = typeof status === "string" ? status.toUpperCase() : "";
   if (isDayOffStatusCode(key)) return BY_CODE[key];
   return enumData.DAY_OFF_STATUS.PENDING;

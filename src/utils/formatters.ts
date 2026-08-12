@@ -152,3 +152,21 @@ export function formatClock(value?: string | null): string {
   if (Number.isNaN(d.getTime())) return "--:--";
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 }
+
+export function toDateOnly(date: Date): string {
+  return moment(date).format("YYYY-MM-DD");
+}
+
+export function parseHhMmToTimeSpan(value: string): string | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
+}
+
+export function clockOrEmpty(value?: string | null): string {
+  if (!value || value === "--:--") return "";
+  return value;
+}
