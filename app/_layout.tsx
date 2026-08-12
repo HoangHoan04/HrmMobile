@@ -1,15 +1,17 @@
+import { ConfirmContainer } from "@/components/ui/confirm";
+import { AppDrawer } from "@/components/layout/drawer";
 import { ToastContainer } from "@/components/ui/Toast";
 import { Colors } from "@/constants/common/Colors";
 import { useAuthStore } from "@/store/authStore";
 import { Feather } from "@expo/vector-icons";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Slot, useRouter, useSegments } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
-import { ActivityIndicator, Text, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 
 import { useLanguageStore } from "@/store/languageStore";
 import { useThemeStore } from "@/store/themeStore";
-
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const queryClient = new QueryClient();
 
@@ -21,12 +23,13 @@ export default function RootLayout() {
 
   const initLanguage = useLanguageStore((s) => s.initLanguage);
   const initTheme = useThemeStore((s) => s.initTheme);
+  const appTheme = useThemeStore((s) => s.theme);
 
   const segments = useSegments();
   const router = useRouter();
 
-  const colorScheme = useColorScheme() ?? "light";
-  const theme = Colors[colorScheme];
+  const theme = Colors[appTheme];
+  const statusBarStyle = appTheme === "dark" ? "light" : "dark";
 
   useEffect(() => {
     initializeAuth();
@@ -60,6 +63,7 @@ export default function RootLayout() {
   if (!isInitialized) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.background }}>
+        <StatusBar style={statusBarStyle} />
         <View
           style={{
             flex: 1,
@@ -115,8 +119,11 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <StatusBar style={statusBarStyle} />
       <Slot />
+      {isAuthenticated ? <AppDrawer /> : null}
       <ToastContainer />
+      <ConfirmContainer />
     </QueryClientProvider>
   );
 }

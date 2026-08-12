@@ -1,25 +1,35 @@
+import {
+  Calendar,
+  type CalendarDayMeta,
+} from "@/components/ui/calendar";
+import { DrawerMenuButton } from "@/components/layout/drawer";
 import { Colors } from "@/constants/common/Colors";
-import { useThemeStore } from "@/store/themeStore";
-
 import { enumData } from "@/constants/enums/enumData";
+import {
+  getAttendanceStatusBg,
+  getAttendanceStatusColor,
+  getAttendanceStatusLabelKey,
+  resolveAttendanceStatus,
+} from "@/constants/enums/attendanceStatus";
+import { formatClock, parseWorkDate } from "@/features/common";
 import { useAttendance } from "@/hooks";
+import { useLanguageStore } from "@/store/languageStore";
+import { useThemeStore } from "@/store/themeStore";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Animated,
   Dimensions,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  useColorScheme,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface AttendanceDay {
   date: Date;
@@ -30,28 +40,10 @@ interface AttendanceDay {
   note?: string;
 }
 
-function formatClock(value?: string | null): string {
-  if (!value) return "--:--";
-  if (/^\d{1,2}:\d{2}/.test(value) && !value.includes("T")) {
-    const [h, m] = value.split(":");
-    return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
-  }
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "--:--";
-  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-}
-
-function parseWorkDate(value: string): Date {
-  const parts = value.split("-").map(Number);
-  if (parts.length >= 3) {
-    return new Date(parts[0], parts[1] - 1, parts[2]);
-  }
-  return new Date(value);
-}
-
 export default function CheckInScreen() {
   const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
+  const { t, language } = useLanguageStore();
   const insets = useSafeAreaInsets();
   const { month, loadingMonth, fetchMonth } = useAttendance();
 
@@ -116,23 +108,21 @@ export default function CheckInScreen() {
     return data;
   }, [currentMonth, month]);
 
-  const calendarDays = useMemo(() => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const startDayOfWeek = firstDay.getDay();
-
-    const days = [];
-    for (let i = 0; i < startDayOfWeek; i++) {
-      days.push(null);
-    }
-    const tempDate = new Date(year, month, 1);
-    while (tempDate.getMonth() === month) {
-      days.push(new Date(tempDate));
-      tempDate.setDate(tempDate.getDate() + 1);
-    }
-    return days;
-  }, [currentMonth]);
+  const calendarDayMeta = useMemo(() => {
+    const meta: Record<number, CalendarDayMeta> = {};
+    Object.values(attendanceData).forEach((day) => {
+      const dayNum = day.date.getDate();
+      const statusMeta = resolveAttendanceStatus(day.status);
+      meta[dayNum] = {
+        markerColor: statusMeta?.color || null,
+        dimmed:
+          selectedFilter !== "all" && day.status !== selectedFilter,
+        disabled: !day.status || !statusMeta,
+        data: day,
+      };
+    });
+    return meta;
+  }, [attendanceData, selectedFilter]);
 
   const stats = useMemo(() => {
     const ontime = month?.onTimeDays ?? 0;
@@ -151,28 +141,9 @@ export default function CheckInScreen() {
     return { activeDays, ontime, late, early, leave, absent, workedHours };
   }, [attendanceData, month]);
 
-  const handlePrevMonth = () => {
-    setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1),
-    );
-  };
-
-  const handleNextMonth = () => {
-    setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1),
-    );
-  };
-
-  const isCurrentMonthActive = useMemo(() => {
-    const now = new Date();
-    return (
-      currentMonth.getFullYear() === now.getFullYear() &&
-      currentMonth.getMonth() === now.getMonth()
-    );
-  }, [currentMonth]);
-
-  const handleDaySelect = (dayData: AttendanceDay) => {
-    if (!dayData.status) return;
+  const handleDayPress = (day: Date, meta?: CalendarDayMeta) => {
+    const dayData = (meta?.data as AttendanceDay | undefined) || null;
+    if (!dayData?.status) return;
     setSelectedDay(dayData);
     Animated.spring(sheetAnim, {
       toValue: 0,
@@ -211,8 +182,18 @@ export default function CheckInScreen() {
     return { lates, earlies, absents, leaves };
   }, [attendanceData, month]);
 
-  const targetHours = 88;
+  const targetHours = useMemo(() => {
+    if (month?.expectedWorkedMinutes != null && month.expectedWorkedMinutes > 0) {
+      return Math.round((month.expectedWorkedMinutes / 60) * 10) / 10;
+    }
+    return 0;
+  }, [month?.expectedWorkedMinutes]);
+
   const remainingHours = Math.max(0, targetHours - stats.workedHours);
+  const progressPercent =
+    targetHours > 0
+      ? Math.min(100, (stats.workedHours / targetHours) * 100)
+      : 0;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -224,26 +205,18 @@ export default function CheckInScreen() {
         ]}
       >
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={[
-              styles.iconButton,
-              { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={22} color={theme.textMain} />
-          </TouchableOpacity>
+          <View style={{ width: 38 }} />
           <View style={styles.headerTitleWrap}>
             <Text style={[styles.headerTitle, { color: theme.textMain }]}>
-              Bảng công
+              {t("checkin.title")}
             </Text>
             <Text
               style={[styles.headerSubtitle, { color: theme.textSecondary }]}
             >
-              Chi tiết bảng công
+              {t("checkin.subtitle")}
             </Text>
           </View>
-          <View style={{ width: 38 }} />
+          <DrawerMenuButton />
         </View>
 
         <View
@@ -256,7 +229,7 @@ export default function CheckInScreen() {
             <Text
               style={[styles.overviewTitle, { color: theme.textSecondary }]}
             >
-              GIỜ CÔNG LUỸ KẾ
+              {t("checkin.cumulativeHours")}
             </Text>
             <Ionicons
               name="hourglass-outline"
@@ -266,9 +239,11 @@ export default function CheckInScreen() {
           </View>
           <Text style={[styles.overviewHours, { color: theme.primary }]}>
             {stats.workedHours.toFixed(1)}{" "}
-            <Text style={[styles.overviewMax, { color: theme.textSecondary }]}>
-              / {targetHours} giờ
-            </Text>
+            {targetHours > 0 && (
+              <Text style={[styles.overviewMax, { color: theme.textSecondary }]}>
+                {t("checkin.hoursOfTotal", { n: targetHours })}
+              </Text>
+            )}
           </Text>
 
           <View
@@ -284,7 +259,7 @@ export default function CheckInScreen() {
                 styles.progressBarFill,
                 {
                   backgroundColor: theme.primary,
-                  width: `${Math.min(100, (stats.workedHours / targetHours) * 100)}%`,
+                  width: `${progressPercent}%`,
                 },
               ]}
             />
@@ -293,263 +268,179 @@ export default function CheckInScreen() {
           <Text
             style={[styles.overviewHelpText, { color: theme.textSecondary }]}
           >
-            {remainingHours > 0
-              ? `Còn ${remainingHours.toFixed(1)} giờ để đạt đủ công chuẩn.`
-              : "Chúc mừng! Bạn đã hoàn thành chỉ tiêu giờ công tháng này."}
+            {targetHours <= 0
+              ? t("checkin.hoursNoTarget")
+              : remainingHours > 0
+                ? t("checkin.hoursRemaining", { n: remainingHours.toFixed(1) })
+                : t("checkin.hoursComplete")}
           </Text>
         </View>
 
-        <View style={styles.monthSelectorRow}>
-          <TouchableOpacity
-            style={[
-              styles.monthNavBtn,
-              { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            onPress={handlePrevMonth}
-          >
-            <Ionicons name="chevron-back" size={18} color={theme.primary} />
-          </TouchableOpacity>
-
-          <View style={[styles.monthPill, { backgroundColor: theme.primary }]}>
-            <Text style={styles.monthPillText}>
-              Tháng {currentMonth.getMonth() + 1}/{currentMonth.getFullYear()}
-            </Text>
-            {isCurrentMonthActive && (
-              <View style={styles.currentMonthBadge}>
-                <Text style={styles.currentMonthBadgeText}>Hiện tại</Text>
-              </View>
-            )}
-            <Ionicons
-              name="chevron-down-outline"
-              size={14}
-              color="#FFFFFF"
-              style={{ marginLeft: 6 }}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.monthNavBtn,
-              { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            onPress={handleNextMonth}
-          >
-            <Ionicons name="chevron-forward" size={18} color={theme.primary} />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterContainer}
-        >
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              selectedFilter === "all"
-                ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                : { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            onPress={() => setSelectedFilter("all")}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilter === "all"
-                  ? { color: "#FFFFFF" }
-                  : { color: theme.textMain },
-              ]}
+        <Calendar
+          month={currentMonth}
+          onMonthChange={setCurrentMonth}
+          dayMeta={calendarDayMeta}
+          onDayPress={handleDayPress}
+          formatMonthLabel={(m) =>
+            t("checkin.monthLabel", {
+              m: m.getMonth() + 1,
+              y: m.getFullYear(),
+            })
+          }
+          currentBadgeLabel={t("checkin.current")}
+          loading={loadingMonth}
+          loadingLabel={t("checkin.loading")}
+          renderBelowHeader={
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterContainer}
             >
-              Tất cả
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              selectedFilter === enumData.ATTENDANCE_STATUS.LATE.code
-                ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                : { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            onPress={() =>
-              setSelectedFilter(enumData.ATTENDANCE_STATUS.LATE.code)
-            }
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilter === enumData.ATTENDANCE_STATUS.LATE.code
-                  ? { color: "#FFFFFF" }
-                  : { color: theme.textMain },
-              ]}
-            >
-              Đi muộn ({filterCounts.lates})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              selectedFilter === enumData.ATTENDANCE_STATUS.EARLY.code
-                ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                : { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            onPress={() =>
-              setSelectedFilter(enumData.ATTENDANCE_STATUS.EARLY.code)
-            }
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilter === enumData.ATTENDANCE_STATUS.EARLY.code
-                  ? { color: "#FFFFFF" }
-                  : { color: theme.textMain },
-              ]}
-            >
-              Về sớm ({filterCounts.earlies})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              selectedFilter === enumData.ATTENDANCE_STATUS.ABSENT.code
-                ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                : { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            onPress={() =>
-              setSelectedFilter(enumData.ATTENDANCE_STATUS.ABSENT.code)
-            }
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilter === enumData.ATTENDANCE_STATUS.ABSENT.code
-                  ? { color: "#FFFFFF" }
-                  : { color: theme.textMain },
-              ]}
-            >
-              Vắng ({filterCounts.absents})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              selectedFilter === enumData.ATTENDANCE_STATUS.LEAVE.code
-                ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                : { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            onPress={() =>
-              setSelectedFilter(enumData.ATTENDANCE_STATUS.LEAVE.code)
-            }
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilter === enumData.ATTENDANCE_STATUS.LEAVE.code
-                  ? { color: "#FFFFFF" }
-                  : { color: theme.textMain },
-              ]}
-            >
-              Nghỉ phép ({filterCounts.leaves})
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-
-        <View
-          style={[
-            styles.calendarCard,
-            { backgroundColor: theme.cardBg, borderColor: theme.border },
-          ]}
-        >
-          {loadingMonth && (
-            <View style={styles.calendarLoading}>
-              <ActivityIndicator size="small" color={theme.primary} />
-              <Text
+              <TouchableOpacity
                 style={[
-                  styles.calendarLoadingText,
-                  { color: theme.textSecondary },
+                  styles.filterChip,
+                  selectedFilter === "all"
+                    ? {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      }
+                    : {
+                        backgroundColor: theme.cardBg,
+                        borderColor: theme.border,
+                      },
                 ]}
+                onPress={() => setSelectedFilter("all")}
               >
-                Đang tải bảng công...
-              </Text>
-            </View>
-          )}
-          <View style={styles.calendarWeekdays}>
-            {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((d, index) => (
-              <Text
-                key={d}
-                style={[
-                  styles.weekdayText,
-                  index === 0 && { color: "#EF4444" },
-                ]}
-              >
-                {d}
-              </Text>
-            ))}
-          </View>
-
-          <View style={styles.calendarGrid}>
-            {calendarDays.map((day, idx) => {
-              if (!day) {
-                return (
-                  <View key={`empty-${idx}`} style={styles.calendarDayCell} />
-                );
-              }
-
-              const dayNumStr = day.getDate().toString();
-              const dayData = attendanceData[dayNumStr] || {
-                date: day,
-                status: null,
-              };
-              const isToday = day.toDateString() === new Date().toDateString();
-              const isDimmed =
-                selectedFilter !== "all" && dayData.status !== selectedFilter;
-              const statusColor = dayData.status
-                ? enumData.ATTENDANCE_STATUS[
-                    dayData.status as keyof typeof enumData.ATTENDANCE_STATUS
-                  ]?.color
-                : null;
-
-              return (
-                <TouchableOpacity
-                  key={`day-${dayNumStr}`}
+                <Text
                   style={[
-                    styles.calendarDayCell,
-                    isToday && {
-                      borderColor: theme.primary,
-                      borderWidth: 1.5,
-                      borderRadius: 10,
-                    },
-                    isDimmed && { opacity: 0.25 },
+                    styles.filterText,
+                    selectedFilter === "all"
+                      ? { color: "#FFFFFF" }
+                      : { color: theme.textMain },
                   ]}
-                  onPress={() => handleDaySelect(dayData)}
-                  activeOpacity={0.7}
                 >
-                  <Text
-                    style={[
-                      styles.dayNumberText,
-                      { color: theme.textMain },
-                      day.getDay() === 0 && { color: "#EF4444" },
-                      !dayData.status && { color: theme.textSecondary + "80" },
-                    ]}
-                  >
-                    {dayNumStr}
-                  </Text>
+                  {t("common.all")}
+                </Text>
+              </TouchableOpacity>
 
-                  {statusColor ? (
-                    <View
-                      style={[styles.dayDot, { backgroundColor: statusColor }]}
-                    />
-                  ) : (
-                    <View style={styles.dayDotPlaceholder} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  selectedFilter === enumData.ATTENDANCE_STATUS.LATE.code
+                    ? {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      }
+                    : {
+                        backgroundColor: theme.cardBg,
+                        borderColor: theme.border,
+                      },
+                ]}
+                onPress={() =>
+                  setSelectedFilter(enumData.ATTENDANCE_STATUS.LATE.code)
+                }
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    selectedFilter === enumData.ATTENDANCE_STATUS.LATE.code
+                      ? { color: "#FFFFFF" }
+                      : { color: theme.textMain },
+                  ]}
+                >
+                  {t("checkin.filterLate", { n: filterCounts.lates })}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  selectedFilter === enumData.ATTENDANCE_STATUS.EARLY.code
+                    ? {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      }
+                    : {
+                        backgroundColor: theme.cardBg,
+                        borderColor: theme.border,
+                      },
+                ]}
+                onPress={() =>
+                  setSelectedFilter(enumData.ATTENDANCE_STATUS.EARLY.code)
+                }
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    selectedFilter === enumData.ATTENDANCE_STATUS.EARLY.code
+                      ? { color: "#FFFFFF" }
+                      : { color: theme.textMain },
+                  ]}
+                >
+                  {t("checkin.filterEarly", { n: filterCounts.earlies })}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  selectedFilter === enumData.ATTENDANCE_STATUS.ABSENT.code
+                    ? {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      }
+                    : {
+                        backgroundColor: theme.cardBg,
+                        borderColor: theme.border,
+                      },
+                ]}
+                onPress={() =>
+                  setSelectedFilter(enumData.ATTENDANCE_STATUS.ABSENT.code)
+                }
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    selectedFilter === enumData.ATTENDANCE_STATUS.ABSENT.code
+                      ? { color: "#FFFFFF" }
+                      : { color: theme.textMain },
+                  ]}
+                >
+                  {t("checkin.filterAbsent", { n: filterCounts.absents })}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  selectedFilter === enumData.ATTENDANCE_STATUS.LEAVE.code
+                    ? {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      }
+                    : {
+                        backgroundColor: theme.cardBg,
+                        borderColor: theme.border,
+                      },
+                ]}
+                onPress={() =>
+                  setSelectedFilter(enumData.ATTENDANCE_STATUS.LEAVE.code)
+                }
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    selectedFilter === enumData.ATTENDANCE_STATUS.LEAVE.code
+                      ? { color: "#FFFFFF" }
+                      : { color: theme.textMain },
+                  ]}
+                >
+                  {t("checkin.filterLeave", { n: filterCounts.leaves })}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          }
+        />
 
         <View style={styles.legendRow}>
           <View style={styles.legendItem}>
@@ -562,7 +453,7 @@ export default function CheckInScreen() {
             <Text
               style={[styles.legendTextLabel, { color: theme.textSecondary }]}
             >
-              Đúng giờ
+              {t("checkin.legendOnTime")}
             </Text>
           </View>
           <View style={styles.legendItem}>
@@ -575,7 +466,7 @@ export default function CheckInScreen() {
             <Text
               style={[styles.legendTextLabel, { color: theme.textSecondary }]}
             >
-              Đi muộn
+              {t("checkin.legendLate")}
             </Text>
           </View>
           <View style={styles.legendItem}>
@@ -588,7 +479,7 @@ export default function CheckInScreen() {
             <Text
               style={[styles.legendTextLabel, { color: theme.textSecondary }]}
             >
-              Về sớm
+              {t("checkin.legendEarly")}
             </Text>
           </View>
           <View style={styles.legendItem}>
@@ -601,7 +492,7 @@ export default function CheckInScreen() {
             <Text
               style={[styles.legendTextLabel, { color: theme.textSecondary }]}
             >
-              Phép
+              {t("checkin.legendLeave")}
             </Text>
           </View>
           <View style={styles.legendItem}>
@@ -614,13 +505,13 @@ export default function CheckInScreen() {
             <Text
               style={[styles.legendTextLabel, { color: theme.textSecondary }]}
             >
-              Vắng
+              {t("checkin.legendAbsent")}
             </Text>
           </View>
         </View>
 
         <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-          THỐNG KÊ CHI TIẾT
+          {t("checkin.statsTitle")}
         </Text>
         <View style={styles.statsGrid}>
           <TouchableOpacity
@@ -642,7 +533,7 @@ export default function CheckInScreen() {
               <Text
                 style={[styles.statCardLabel, { color: theme.textSecondary }]}
               >
-                Ngày làm việc
+                {t("checkin.statWorkDays")}
               </Text>
             </View>
           </TouchableOpacity>
@@ -670,7 +561,7 @@ export default function CheckInScreen() {
               <Text
                 style={[styles.statCardLabel, { color: theme.textSecondary }]}
               >
-                Đúng giờ
+                {t("checkin.statOnTime")}
               </Text>
             </View>
           </TouchableOpacity>
@@ -696,7 +587,7 @@ export default function CheckInScreen() {
               <Text
                 style={[styles.statCardLabel, { color: theme.textSecondary }]}
               >
-                Lượt đi muộn
+                {t("checkin.statLate")}
               </Text>
             </View>
           </TouchableOpacity>
@@ -726,7 +617,7 @@ export default function CheckInScreen() {
               <Text
                 style={[styles.statCardLabel, { color: theme.textSecondary }]}
               >
-                Lượt về sớm
+                {t("checkin.statEarly")}
               </Text>
             </View>
           </TouchableOpacity>
@@ -752,7 +643,7 @@ export default function CheckInScreen() {
 
           <View style={styles.sheetHeader}>
             <Text style={[styles.sheetTitle, { color: theme.textMain }]}>
-              {selectedDay.date.toLocaleDateString("vi-VN", {
+              {selectedDay.date.toLocaleDateString(language === "en" ? "en-US" : "vi-VN", {
                 weekday: "long",
                 day: "2-digit",
                 month: "2-digit",
@@ -768,15 +659,13 @@ export default function CheckInScreen() {
           </View>
 
           <View style={styles.sheetBody}>
-            {selectedDay.status && (
+            {selectedDay.status && !!resolveAttendanceStatus(selectedDay.status) && (
               <View
                 style={[
                   styles.sheetStatusBadge,
                   {
                     backgroundColor:
-                      enumData.ATTENDANCE_STATUS[
-                        selectedDay.status as keyof typeof enumData.ATTENDANCE_STATUS
-                      ]?.bg,
+                      getAttendanceStatusBg(selectedDay.status) ?? undefined,
                   },
                 ]}
               >
@@ -785,9 +674,8 @@ export default function CheckInScreen() {
                     styles.legendDot,
                     {
                       backgroundColor:
-                        enumData.ATTENDANCE_STATUS[
-                          selectedDay.status as keyof typeof enumData.ATTENDANCE_STATUS
-                        ]?.color,
+                        getAttendanceStatusColor(selectedDay.status) ??
+                        undefined,
                       marginRight: 6,
                     },
                   ]}
@@ -797,17 +685,12 @@ export default function CheckInScreen() {
                     styles.sheetStatusText,
                     {
                       color:
-                        enumData.ATTENDANCE_STATUS[
-                          selectedDay.status as keyof typeof enumData.ATTENDANCE_STATUS
-                        ]?.color,
+                        getAttendanceStatusColor(selectedDay.status) ??
+                        undefined,
                     },
                   ]}
                 >
-                  {
-                    enumData.ATTENDANCE_STATUS[
-                      selectedDay.status as keyof typeof enumData.ATTENDANCE_STATUS
-                    ]?.label
-                  }
+                  {t(getAttendanceStatusLabelKey(selectedDay.status) ?? "")}
                 </Text>
               </View>
             )}
@@ -830,7 +713,7 @@ export default function CheckInScreen() {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    Giờ vào ca
+                    {t("checkin.checkInTime")}
                   </Text>
                   <Text
                     style={[styles.sheetTimeValue, { color: theme.textMain }]}
@@ -854,7 +737,7 @@ export default function CheckInScreen() {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    Giờ ra ca
+                    {t("checkin.checkOutTime")}
                   </Text>
                   <Text
                     style={[styles.sheetTimeValue, { color: theme.textMain }]}
@@ -872,12 +755,12 @@ export default function CheckInScreen() {
                   { color: theme.textSecondary },
                 ]}
               >
-                Số giờ công tính ngày
+                {t("checkin.dayWorkedHours")}
               </Text>
               <Text
                 style={[styles.sheetDetailValue, { color: theme.textMain }]}
               >
-                {selectedDay.workedHours.toFixed(2)} giờ
+                {t("checkin.hoursValue", { n: selectedDay.workedHours.toFixed(2) })}
               </Text>
             </View>
 
@@ -910,7 +793,7 @@ export default function CheckInScreen() {
               ]}
               onPress={closeBottomSheet}
             >
-              <Text style={styles.sheetActionText}>Đóng</Text>
+              <Text style={styles.sheetActionText}>{t("common.close")}</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -932,14 +815,6 @@ const styles = StyleSheet.create({
   headerTitleWrap: { alignItems: "center" },
   headerTitle: { fontSize: 18, fontWeight: "800" },
   headerSubtitle: { fontSize: 12, fontWeight: "500", marginTop: 2 },
-  iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
 
   overviewCard: {
     borderRadius: 24,
@@ -969,44 +844,6 @@ const styles = StyleSheet.create({
   },
   progressBarFill: { height: "100%", borderRadius: 4 },
   overviewHelpText: { fontSize: 12, fontWeight: "500" },
-  monthSelectorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  monthNavBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  monthPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  monthPillText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  currentMonthBadge: {
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginLeft: 6,
-  },
-  currentMonthBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 9,
-    fontWeight: "800",
-  },
 
   filterContainer: {
     paddingBottom: 16,
@@ -1021,66 +858,6 @@ const styles = StyleSheet.create({
   filterText: {
     fontSize: 12,
     fontWeight: "700",
-  },
-
-  calendarCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 16,
-  },
-  calendarLoading: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginBottom: 12,
-  },
-  calendarLoadingText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  calendarWeekdays: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(156, 163, 175, 0.15)",
-    paddingBottom: 10,
-    marginBottom: 10,
-  },
-  weekdayText: {
-    width: 36,
-    textAlign: "center",
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#9CA3AF",
-  },
-  calendarGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-around",
-    rowGap: 10,
-  },
-  calendarDayCell: {
-    width: SCREEN_WIDTH * 0.105,
-    height: 48,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  dayNumberText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  dayDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    marginTop: 4,
-  },
-  dayDotPlaceholder: {
-    width: 5,
-    height: 5,
-    marginTop: 4,
   },
 
   legendRow: {

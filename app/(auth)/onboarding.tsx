@@ -35,52 +35,36 @@ type SlideKey = "meeting" | "stress" | "achievement" | "final";
 
 interface SlideData {
   key: SlideKey;
-  title: { vi: string; en: string };
-  desc: { vi: string; en: string };
+  titleKey: string;
+  descKey: string;
 }
 
 const SLIDES: SlideData[] = [
   {
     key: "meeting",
-    title: { vi: "Chào mừng đến với Workmate!", en: "Welcome to Workmate!" },
-    desc: {
-      vi: "Đưa ra quyết định thông minh! Lên lịch rõ ràng cho dự án và ăn mừng thành tích của bạn.",
-      en: "Make Smart Decisions! Set clear timelines for projects and celebrate your achievements!",
-    },
+    titleKey: "onboarding.slide1Title",
+    descKey: "onboarding.slide1Desc",
   },
   {
     key: "stress",
-    title: { vi: "Quản lý áp lực hiệu quả", en: "Manage Stress Effectively" },
-    desc: {
-      vi: "Giữ cân bằng! Theo dõi khối lượng công việc và duy trì mức độ căng thẳng hợp lý.",
-      en: "Stay Balanced! Track your workload and maintain a healthy stress level with ease.",
-    },
+    titleKey: "onboarding.slide2Title",
+    descKey: "onboarding.slide2Desc",
   },
   {
     key: "achievement",
-    title: { vi: "Lên kế hoạch cho thành công", en: "Plan for Success" },
-    desc: {
-      vi: "Hành trình của bạn bắt đầu từ đây! Nhận huy hiệu thành tích khi hoàn thành nhiệm vụ.",
-      en: "Your Journey Starts Here! Earn achievement badges as you conquer your tasks. Let's get started!",
-    },
+    titleKey: "onboarding.slide3Title",
+    descKey: "onboarding.slide3Desc",
   },
   {
     key: "final",
-    title: {
-      vi: "Định hướng công việc hiệu quả & dễ dàng",
-      en: "Navigate Your Work Journey Efficient & Easy",
-    },
-    desc: {
-      vi: "Nâng cao hiệu quả quản lý công việc và phát triển sự nghiệp một cách vượt trội.",
-      en: "Increase your work management & career development radically.",
-    },
+    titleKey: "onboarding.slide4Title",
+    descKey: "onboarding.slide4Desc",
   },
 ];
 
 export default function OnboardingScreen() {
-  const { language } = useLanguageStore();
+  const { t } = useLanguageStore();
   const setOnboardingCompleted = useAuthStore((s) => s.setOnboardingCompleted);
-  const isVi = language === "vi";
   const insets = useSafeAreaInsets();
 
   const [index, setIndex] = useState(0);
@@ -147,7 +131,7 @@ export default function OnboardingScreen() {
                 ]}
               />
 
-              <MockupIllustration variant={item.key} isVi={isVi} />
+              <MockupIllustration variant={item.key} t={t} />
             </View>
 
             <View
@@ -163,12 +147,8 @@ export default function OnboardingScreen() {
                   alignItems: "center",
                 }}
               >
-                <Text style={styles.title}>
-                  {isVi ? item.title.vi : item.title.en}
-                </Text>
-                <Text style={styles.desc}>
-                  {isVi ? item.desc.vi : item.desc.en}
-                </Text>
+                <Text style={styles.title}>{t(item.titleKey)}</Text>
+                <Text style={styles.desc}>{t(item.descKey)}</Text>
               </View>
 
               <View style={{ width: "100%", alignItems: "center" }}>
@@ -196,7 +176,7 @@ export default function OnboardingScreen() {
                       activeOpacity={0.85}
                     >
                       <Text style={styles.primaryBtnText}>
-                        {isVi ? "Tiếp tục" : "Next"}
+                        {t("onboarding.next")}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -205,7 +185,7 @@ export default function OnboardingScreen() {
                       activeOpacity={0.7}
                     >
                       <Text style={styles.outlineBtnText}>
-                        {isVi ? "Bỏ qua" : "Skip"}
+                        {t("onboarding.skip")}
                       </Text>
                     </TouchableOpacity>
                   </>
@@ -217,7 +197,7 @@ export default function OnboardingScreen() {
                       activeOpacity={0.85}
                     >
                       <Text style={styles.primaryBtnText}>
-                        {isVi ? "Đăng nhập" : "Sign In"}
+                        {t("onboarding.signIn")}
                       </Text>
                     </TouchableOpacity>
                   </>
@@ -233,10 +213,10 @@ export default function OnboardingScreen() {
 
 function MockupIllustration({
   variant,
-  isVi,
+  t,
 }: {
   variant: SlideKey;
-  isVi: boolean;
+  t: (path: string, params?: Record<string, string | number>) => string;
 }) {
   return (
     <View style={styles.cardStack}>
@@ -244,19 +224,17 @@ function MockupIllustration({
       <View style={[styles.floatCard, styles.floatCardMain]}>
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardHeaderTitle}>
-            {variant === "meeting" &&
-              (isVi ? "Cuộc họp hôm nay" : "Today Meeting")}
-            {variant === "stress" &&
-              (isVi ? "Chu kỳ làm việc" : "Working Period")}
-            {variant === "achievement" && (isVi ? "Thành tích" : "Achievement")}
-            {variant === "final" && (isVi ? "Nhiệm vụ hôm nay" : "Today Task")}
+            {variant === "meeting" && t("onboarding.mockMeetingTitle")}
+            {variant === "stress" && t("onboarding.mockWorkingPeriod")}
+            {variant === "achievement" && t("onboarding.mockAchievement")}
+            {variant === "final" && t("onboarding.mockTodayTask")}
           </Text>
           <View style={styles.cardHeaderBadge}>
             <Text style={styles.cardHeaderBadgeText}>2</Text>
           </View>
         </View>
         <Text style={styles.cardHeaderSub}>
-          {isVi ? "Lịch trình của bạn trong ngày" : "Your schedule for the day"}
+          {t("onboarding.mockSchedule")}
         </Text>
 
         <View style={styles.cardListItem}>
@@ -264,7 +242,7 @@ function MockupIllustration({
             <Ionicons name="calendar-outline" size={14} color="#FFFFFF" />
           </View>
           <Text style={styles.cardListText} numberOfLines={1}>
-            {isVi ? "Họp toàn công ty" : "Townhall Meeting"}
+            {t("onboarding.mockTownhall")}
           </Text>
           <View style={styles.cardListTimeBadge}>
             <Text style={styles.cardListTimeText}>08:30</Text>
@@ -274,7 +252,7 @@ function MockupIllustration({
       <View style={[styles.floatCard, styles.floatCardSmall]}>
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardHeaderTitleSm}>
-            {isVi ? "Nhiệm vụ" : "Today Task"}
+            {t("onboarding.mockTask")}
           </Text>
           <View style={styles.cardHeaderBadge}>
             <Text style={styles.cardHeaderBadgeText}>1</Text>
@@ -283,11 +261,11 @@ function MockupIllustration({
         <View style={styles.progressPillRow}>
           <View style={styles.progressPillDot} />
           <Text style={styles.progressPillText}>
-            {isVi ? "Đang tiến hành" : "In Progress"}
+            {t("onboarding.mockInProgress")}
           </Text>
           <View style={styles.priorityBadge}>
             <Text style={styles.priorityBadgeText}>
-              {isVi ? "Cao" : "High"}
+              {t("onboarding.mockHigh")}
             </Text>
           </View>
         </View>

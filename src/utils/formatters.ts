@@ -94,7 +94,38 @@ export const checkAccountNumberBankValid = (accountName: string) => {
   return regex.test(accountName);
 };
 
-export const getVietnameseDate = (): string => {
+export const getLocalizedDate = (language: "vi" | "en" = "vi"): string => {
+  const now = new Date();
+  const date = now.getDate().toString().padStart(2, "0");
+  const month = (now.getMonth() + 1).toString().padStart(2, "0");
+
+  if (language === "en") {
+    const days = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const months = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    return `${days[now.getDay()]}, ${months[now.getMonth()]} ${date}`;
+  }
+
   const days = [
     "Chủ nhật",
     "Thứ hai",
@@ -104,13 +135,20 @@ export const getVietnameseDate = (): string => {
     "Thứ sáu",
     "Thứ bảy",
   ];
-  const now = new Date();
-  const dayName = days[now.getDay()];
-  const date = now.getDate().toString().padStart(2, "0");
-  const month = (now.getMonth() + 1).toString().padStart(2, "0");
-  return `${dayName}, ngày ${date} Tháng ${month}`;
+  return `${days[now.getDay()]}, ngày ${date} Tháng ${month}`;
 };
 
 export const getRandomNumber = (min: number, max: number): number => {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 };
+
+export function formatClock(value?: string | null): string {
+  if (!value) return "--:--";
+  if (/^\d{1,2}:\d{2}/.test(value) && !value.includes("T")) {
+    const [h, m] = value.split(":");
+    return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "--:--";
+  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+}

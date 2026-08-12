@@ -1,18 +1,20 @@
+import { DrawerMenuButton } from "@/components/layout/drawer";
+import { showAlert, showConfirm } from "@/components/ui/confirm";
 import { ImageUploadButton } from "@/components/ui/upload/ImageUploadButton";
 import { Colors } from "@/constants/common/Colors";
+import { useLanguageStore } from "@/store/languageStore";
 import { useThemeStore } from "@/store/themeStore";
 
 import { useProfile } from "@/hooks";
+import { showToastError, showToastSuccess } from "@/helper/ToastEventEmitter";
 import { endpoints } from "@/services/api/endpoints";
 import { rootApi } from "@/services/api/rootApi";
 import { useAuthStore } from "@/store/authStore";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   RefreshControl,
   ScrollView,
@@ -20,12 +22,9 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  useColorScheme,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const AVATAR_URL_KEY = "USER_AVATAR_URL";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -36,6 +35,7 @@ export default function ProfileScreen() {
   const theme = Colors[colorScheme];
 
   const { profile, loading, refetch } = useProfile();
+  const { t } = useLanguageStore();
   const [refreshing, setRefreshing] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -48,19 +48,42 @@ export default function ProfileScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    SecureStore.getItemAsync(AVATAR_URL_KEY)
-      .then((value) => {
-        if (value) {
-          setAvatarUrl(value);
-        }
-      })
-      .catch(() => undefined);
-  }, []);
+    setAvatarUrl(profile?.avatarUrl ?? null);
+  }, [profile?.avatarUrl]);
 
-  const handleAvatarUploaded = useCallback(async (url: string) => {
-    setAvatarUrl(url);
-    await SecureStore.setItemAsync(AVATAR_URL_KEY, url);
-  }, []);
+  const handleAvatarUploaded = useCallback(
+    async (url: string) => {
+      const previous = avatarUrl;
+      setAvatarUrl(url);
+      try {
+        await rootApi.post(endpoints.auth.updateProfile, {
+          email: profile?.email || user?.email || "",
+          phoneNumber: profile?.phone || profile?.phoneNumber || "",
+          avatarUrl: url,
+        });
+        await refetch();
+      } catch (error: any) {
+        setAvatarUrl(previous);
+        const errorMsg =
+          error.response?.data?.message ||
+          error.response?.data ||
+          error.message ||
+          t("profile.updateFail");
+        showToastError(
+          typeof errorMsg === "string" ? errorMsg : t("profile.updateFail"),
+        );
+      }
+    },
+    [
+      avatarUrl,
+      profile?.email,
+      profile?.phone,
+      profile?.phoneNumber,
+      refetch,
+      t,
+      user?.email,
+    ],
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -69,17 +92,22 @@ export default function ProfileScreen() {
   }, [refetch]);
 
   const handleLogout = () => {
-    Alert.alert("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?", [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Đăng xuất",
-        style: "destructive",
-        onPress: async () => {
-          await logout();
-          router.replace("/(auth)/login");
+    showConfirm({
+      title: t("profile.logout"),
+      message: t("profile.logoutConfirm"),
+      variant: "warning",
+      buttons: [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("profile.logout"),
+          style: "destructive",
+          onPress: async () => {
+            await logout();
+            router.replace("/(auth)/login");
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   const handleMenuPress = (id: string) => {
@@ -93,25 +121,19 @@ export default function ProfileScreen() {
       setPhone(profile?.phone || "");
       setIsSettingsModalOpen(true);
     } else if (id === "help") {
-      Alert.alert(
-        "Trợ giúp",
-        "Vui lòng liên hệ Phòng Nhân sự (HR) qua số 1900-HRM hoặc gửi email tới support@hrm.com để được hỗ trợ.",
-      );
+      showAlert(t("profile.helpTitle"), t("profile.helpBody"));
     } else if (id === "about") {
-      Alert.alert(
-        "Về ứng dụng",
-        "HRM Mobile v1.0.0\nHệ thống quản trị nhân sự nội bộ chuyên nghiệp.",
-      );
+      showAlert(t("profile.aboutTitle"), t("profile.aboutBody"));
     }
   };
 
   const handleChangePassword = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
-      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin mật khẩu.");
+      showToastError(t("profile.passwordRequired"));
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert("Lỗi", "Mật khẩu mới và xác nhận mật khẩu không khớp.");
+      showToastError(t("profile.passwordMismatch"));
       return;
     }
     setModalLoading(true);
@@ -120,17 +142,16 @@ export default function ProfileScreen() {
         oldPassword,
         newPassword,
       });
-      Alert.alert("Thành công", "Thay đổi mật khẩu thành công.");
+      showToastSuccess(t("profile.passwordSuccess"));
       setIsPasswordModalOpen(false);
     } catch (error: any) {
       const errorMsg =
         error.response?.data?.message ||
         error.response?.data ||
         error.message ||
-        "Không thể đổi mật khẩu.";
-      Alert.alert(
-        "Lỗi",
-        typeof errorMsg === "string" ? errorMsg : "Không thể đổi mật khẩu.",
+        t("profile.passwordFail");
+      showToastError(
+        typeof errorMsg === "string" ? errorMsg : t("profile.passwordFail"),
       );
     } finally {
       setModalLoading(false);
@@ -139,7 +160,7 @@ export default function ProfileScreen() {
 
   const handleUpdateProfile = async () => {
     if (!email) {
-      Alert.alert("Lỗi", "Email không được để trống.");
+      showToastError(t("profile.emailRequired"));
       return;
     }
     setModalLoading(true);
@@ -147,8 +168,9 @@ export default function ProfileScreen() {
       await rootApi.post(endpoints.auth.updateProfile, {
         email,
         phoneNumber: phone,
+        avatarUrl: avatarUrl || undefined,
       });
-      Alert.alert("Thành công", "Cập nhật thông tin tài khoản thành công.");
+      showToastSuccess(t("profile.updateSuccess"));
       setIsSettingsModalOpen(false);
       await refetch();
     } catch (error: any) {
@@ -156,12 +178,9 @@ export default function ProfileScreen() {
         error.response?.data?.message ||
         error.response?.data ||
         error.message ||
-        "Không thể cập nhật tài khoản.";
-      Alert.alert(
-        "Lỗi",
-        typeof errorMsg === "string"
-          ? errorMsg
-          : "Không thể cập nhật tài khoản.",
+        t("profile.updateFail");
+      showToastError(
+        typeof errorMsg === "string" ? errorMsg : t("profile.updateFail"),
       );
     } finally {
       setModalLoading(false);
@@ -172,7 +191,26 @@ export default function ProfileScreen() {
     profile?.fullName ||
     (user?.username
       ? user.username.charAt(0).toUpperCase() + user.username.slice(1)
-      : "Nhân viên");
+      : t("common.employee"));
+
+  const positionLabel = profile?.positionName || profile?.position;
+  const companyLabel = profile?.companyName || profile?.company;
+  const branchLabel = profile?.branchName || profile?.branch;
+
+  const yearsOfService = (() => {
+    if (!profile?.joinDate) return null;
+    const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(profile.joinDate);
+    if (!match) return null;
+    const join = new Date(
+      Number(match[3]),
+      Number(match[2]) - 1,
+      Number(match[1]),
+    );
+    if (Number.isNaN(join.getTime())) return null;
+    const years =
+      (Date.now() - join.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    return Math.max(0, Math.floor(years));
+  })();
 
   if (loading && !profile) {
     return (
@@ -184,51 +222,105 @@ export default function ProfileScreen() {
       >
         <ActivityIndicator size="large" color={theme.primary} />
         <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-          Đang tải hồ sơ...
+          {t("profile.loading")}
         </Text>
       </View>
     );
   }
 
   const personalInfo = [
-    { icon: "call-outline", label: "Số điện thoại", value: profile?.phone },
+    {
+      icon: "id-card-outline",
+      label: t("profile.fieldEmployeeCode"),
+      value: profile?.employeeCode,
+    },
+    {
+      icon: "call-outline",
+      label: t("profile.fieldPhone"),
+      value: profile?.phone,
+    },
     {
       icon: "mail-outline",
-      label: "Email",
+      label: t("profile.fieldEmail"),
       value: profile?.email || user?.email,
     },
     {
+      icon: "mail-unread-outline",
+      label: t("profile.fieldCompanyEmail"),
+      value: profile?.companyEmail,
+    },
+    {
       icon: "calendar-outline",
-      label: "Ngày sinh",
+      label: t("profile.fieldDateOfBirth"),
       value: profile?.dateOfBirth,
     },
-    { icon: "location-outline", label: "Địa chỉ", value: profile?.address },
+    {
+      icon: "location-outline",
+      label: t("profile.fieldAddress"),
+      value: profile?.address || profile?.permanentAddress,
+    },
   ];
 
   const workInfo = [
     {
       icon: "business-outline",
-      label: "Phòng ban",
-      value: profile?.department,
+      label: t("profile.fieldCompany"),
+      value: profile?.companyName || profile?.company,
     },
-    { icon: "briefcase-outline", label: "Chức vụ", value: profile?.position },
+    {
+      icon: "git-branch-outline",
+      label: t("profile.fieldBranch"),
+      value: profile?.branchName || profile?.branch,
+    },
+    {
+      icon: "people-outline",
+      label: t("profile.fieldDepartment"),
+      value: profile?.departmentName || profile?.department,
+    },
+    {
+      icon: "layers-outline",
+      label: t("profile.fieldPart"),
+      value: profile?.partName || profile?.part,
+    },
+    {
+      icon: "briefcase-outline",
+      label: t("profile.fieldPosition"),
+      value: profile?.positionName || profile?.position,
+    },
     {
       icon: "calendar-clear-outline",
-      label: "Ngày vào làm",
+      label: t("profile.fieldJoinDate"),
       value: profile?.joinDate,
     },
     {
-      icon: "card-outline",
-      label: "Mã nhân viên",
-      value: profile?.employeeCode,
+      icon: "checkmark-circle-outline",
+      label: t("profile.fieldStatus"),
+      value: profile?.status,
+    },
+    {
+      icon: "construct-outline",
+      label: t("profile.fieldWorkingMode"),
+      value: profile?.workingMode,
     },
   ];
 
   const menuActions = [
-    { id: "password", icon: "lock-closed-outline", label: "Đổi mật khẩu" },
-    { id: "settings", icon: "settings-outline", label: "Cài đặt tài khoản" },
-    { id: "help", icon: "help-circle-outline", label: "Trợ giúp & Hỗ trợ" },
-    { id: "about", icon: "information-circle-outline", label: "Về ứng dụng" },
+    {
+      id: "password",
+      icon: "lock-closed-outline",
+      label: t("profile.menuPassword"),
+    },
+    {
+      id: "settings",
+      icon: "settings-outline",
+      label: t("profile.menuSettings"),
+    },
+    { id: "help", icon: "help-circle-outline", label: t("profile.menuHelp") },
+    {
+      id: "about",
+      icon: "information-circle-outline",
+      label: t("profile.menuAbout"),
+    },
   ];
 
   return (
@@ -248,18 +340,9 @@ export default function ProfileScreen() {
         }
       >
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={[
-              styles.iconButton,
-              { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={22} color={theme.textMain} />
-          </TouchableOpacity>
+          <DrawerMenuButton />
           <Text style={[styles.headerTitle, { color: theme.textMain }]}>
-            Hồ sơ cá nhân
+            {t("profile.title")}
           </Text>
           <TouchableOpacity
             style={[
@@ -292,7 +375,7 @@ export default function ProfileScreen() {
             {displayName}
           </Text>
 
-          {!!profile?.position && (
+          {!!positionLabel && (
             <View
               style={[
                 styles.roleBadge,
@@ -310,9 +393,20 @@ export default function ProfileScreen() {
                 color={theme.primary}
               />
               <Text style={[styles.roleBadgeText, { color: theme.primary }]}>
-                {profile.position}
+                {positionLabel}
               </Text>
             </View>
+          )}
+
+          {(!!companyLabel || !!branchLabel) && (
+            <Text
+              style={[
+                styles.heroOrgText,
+                { color: theme.textSecondary, marginTop: 8 },
+              ]}
+            >
+              {[companyLabel, branchLabel].filter(Boolean).join(" · ")}
+            </Text>
           )}
 
           <View
@@ -325,7 +419,7 @@ export default function ProfileScreen() {
                 {profile?.stats?.workDaysThisMonth ?? "--"}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
-                Công tháng này
+                {t("profile.statWorkDays")}
               </Text>
             </View>
             <View
@@ -336,7 +430,7 @@ export default function ProfileScreen() {
                 {profile?.stats?.leaveDaysRemaining ?? "--"}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
-                Phép còn lại
+                {t("profile.statLeave")}
               </Text>
             </View>
             <View
@@ -344,24 +438,24 @@ export default function ProfileScreen() {
             />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: theme.textMain }]}>
-                {profile?.stats?.yearsOfService ?? "--"}
+                {yearsOfService ?? "--"}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
-                Năm công tác
+                {t("profile.statYears")}
               </Text>
             </View>
           </View>
         </View>
 
         <InfoSection
-          title="THÔNG TIN CÁ NHÂN"
+          title={t("profile.sectionPersonal")}
           items={personalInfo}
           theme={theme}
           colorScheme={colorScheme}
         />
 
         <InfoSection
-          title="THÔNG TIN CÔNG VIỆC"
+          title={t("profile.sectionWork")}
           items={workInfo}
           theme={theme}
           colorScheme={colorScheme}
@@ -423,11 +517,11 @@ export default function ProfileScreen() {
           onPress={handleLogout}
         >
           <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-          <Text style={styles.logoutBtnText}>Đăng xuất</Text>
+          <Text style={styles.logoutBtnText}>{t("profile.logout")}</Text>
         </TouchableOpacity>
 
         <Text style={[styles.versionText, { color: theme.textSecondary }]}>
-          Phiên bản 1.0.0
+          {t("profile.version")}
         </Text>
       </ScrollView>
       <Modal
@@ -442,7 +536,7 @@ export default function ProfileScreen() {
           >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.textMain }]}>
-                Đổi mật khẩu
+                {t("profile.changePasswordTitle")}
               </Text>
               <TouchableOpacity onPress={() => setIsPasswordModalOpen(false)}>
                 <Ionicons name="close" size={24} color={theme.textMain} />
@@ -454,7 +548,7 @@ export default function ProfileScreen() {
                 <Text
                   style={[styles.inputLabel, { color: theme.textSecondary }]}
                 >
-                  Mật khẩu cũ
+                  {t("profile.oldPassword")}
                 </Text>
                 <TextInput
                   style={[
@@ -465,7 +559,7 @@ export default function ProfileScreen() {
                       backgroundColor: theme.background,
                     },
                   ]}
-                  placeholder="Nhập mật khẩu cũ"
+                  placeholder={t("profile.enterOldPassword")}
                   placeholderTextColor={theme.textSecondary}
                   secureTextEntry={true}
                   value={oldPassword}
@@ -477,7 +571,7 @@ export default function ProfileScreen() {
                 <Text
                   style={[styles.inputLabel, { color: theme.textSecondary }]}
                 >
-                  Mật khẩu mới
+                  {t("profile.newPassword")}
                 </Text>
                 <TextInput
                   style={[
@@ -488,7 +582,7 @@ export default function ProfileScreen() {
                       backgroundColor: theme.background,
                     },
                   ]}
-                  placeholder="Nhập mật khẩu mới"
+                  placeholder={t("profile.enterNewPassword")}
                   placeholderTextColor={theme.textSecondary}
                   secureTextEntry={true}
                   value={newPassword}
@@ -500,7 +594,7 @@ export default function ProfileScreen() {
                 <Text
                   style={[styles.inputLabel, { color: theme.textSecondary }]}
                 >
-                  Xác nhận mật khẩu mới
+                  {t("profile.confirmPassword")}
                 </Text>
                 <TextInput
                   style={[
@@ -511,7 +605,7 @@ export default function ProfileScreen() {
                       backgroundColor: theme.background,
                     },
                   ]}
-                  placeholder="Xác nhận mật khẩu mới"
+                  placeholder={t("profile.enterConfirmPassword")}
                   placeholderTextColor={theme.textSecondary}
                   secureTextEntry={true}
                   value={confirmPassword}
@@ -529,7 +623,7 @@ export default function ProfileScreen() {
                 <Text
                   style={[styles.modalCancelText, { color: theme.textMain }]}
                 >
-                  Hủy
+                  {t("common.cancel")}
                 </Text>
               </TouchableOpacity>
 
@@ -544,7 +638,7 @@ export default function ProfileScreen() {
                 {modalLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalSubmitText}>Lưu</Text>
+                  <Text style={styles.modalSubmitText}>{t("common.save")}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -564,7 +658,7 @@ export default function ProfileScreen() {
           >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.textMain }]}>
-                Cài đặt tài khoản
+                {t("profile.settingsTitle")}
               </Text>
               <TouchableOpacity onPress={() => setIsSettingsModalOpen(false)}>
                 <Ionicons name="close" size={24} color={theme.textMain} />
@@ -576,7 +670,7 @@ export default function ProfileScreen() {
                 <Text
                   style={[styles.inputLabel, { color: theme.textSecondary }]}
                 >
-                  Email
+                  {t("profile.fieldEmail")}
                 </Text>
                 <TextInput
                   style={[
@@ -587,7 +681,7 @@ export default function ProfileScreen() {
                       backgroundColor: theme.background,
                     },
                   ]}
-                  placeholder="Nhập email"
+                  placeholder={t("profile.enterEmail")}
                   placeholderTextColor={theme.textSecondary}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -600,7 +694,7 @@ export default function ProfileScreen() {
                 <Text
                   style={[styles.inputLabel, { color: theme.textSecondary }]}
                 >
-                  Số điện thoại
+                  {t("profile.fieldPhone")}
                 </Text>
                 <TextInput
                   style={[
@@ -611,7 +705,7 @@ export default function ProfileScreen() {
                       backgroundColor: theme.background,
                     },
                   ]}
-                  placeholder="Nhập số điện thoại"
+                  placeholder={t("profile.enterPhone")}
                   placeholderTextColor={theme.textSecondary}
                   keyboardType="phone-pad"
                   value={phone}
@@ -629,7 +723,7 @@ export default function ProfileScreen() {
                 <Text
                   style={[styles.modalCancelText, { color: theme.textMain }]}
                 >
-                  Hủy
+                  {t("common.cancel")}
                 </Text>
               </TouchableOpacity>
 
@@ -644,7 +738,9 @@ export default function ProfileScreen() {
                 {modalLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalSubmitText}>Cập nhật</Text>
+                  <Text style={styles.modalSubmitText}>
+                    {t("common.update")}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -666,6 +762,7 @@ function InfoSection({
   theme: any;
   colorScheme: "light" | "dark";
 }) {
+  const { t } = useLanguageStore();
   return (
     <View
       style={[
@@ -705,7 +802,7 @@ function InfoSection({
             ]}
             numberOfLines={1}
           >
-            {item.value || "Chưa cập nhật"}
+            {item.value || t("profile.notUpdated")}
           </Text>
         </View>
       ))}
@@ -750,6 +847,12 @@ const styles = StyleSheet.create({
   },
   avatarWrap: { marginBottom: 12 },
   heroName: { fontSize: 19, fontWeight: "800", marginBottom: 8 },
+  heroOrgText: {
+    fontSize: 13,
+    fontWeight: "500",
+    textAlign: "center",
+    paddingHorizontal: 12,
+  },
   roleBadge: {
     flexDirection: "row",
     alignItems: "center",

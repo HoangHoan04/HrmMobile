@@ -359,10 +359,10 @@ export default function ForgotPasswordScreen() {
                 }}
               >
                 {step === 1
-                  ? "Enter your email to receive a recovery OTP"
+                  ? t("forgotPassword.stepEmailHint")
                   : step === 2
-                    ? "Enter the 6-digit OTP code sent to your email"
-                    : "Create a new strong password for your account"}
+                    ? t("forgotPassword.stepOtpHint")
+                    : t("forgotPassword.stepPasswordHint")}
               </Text>
 
               {step === 1 && (

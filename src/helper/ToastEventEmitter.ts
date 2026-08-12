@@ -1,10 +1,24 @@
 import { DeviceEventEmitter } from "react-native";
 
+const TOAST_DEDUPE_MS = 2500;
+let lastErrorToast = "";
+let lastErrorToastAt = 0;
+
 export const showToast = (message: string, data?: any) => {
   DeviceEventEmitter.emit("showToast", message, data);
 };
 
 export const showToastError = (message: string, data?: any) => {
+  const now = Date.now();
+  if (
+    message &&
+    message === lastErrorToast &&
+    now - lastErrorToastAt < TOAST_DEDUPE_MS
+  ) {
+    return;
+  }
+  lastErrorToast = message || "";
+  lastErrorToastAt = now;
   DeviceEventEmitter.emit("showToastError", message, data);
 };
 

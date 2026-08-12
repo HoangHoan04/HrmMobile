@@ -113,25 +113,28 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 export default function TabsLayout() {
   const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
+  const { t } = useLanguageStore();
 
   return (
-    <Tabs
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-        headerStyle: {
-          backgroundColor: theme.primary,
-        },
-        headerTintColor: "#FFF",
-        headerTitleAlign: "center",
-      }}
-    >
-      <Tabs.Screen name="index" options={{ title: "Trang Chủ" }} />
-      <Tabs.Screen name="checkin" options={{ title: "Chấm Công" }} />
-      <Tabs.Screen name="leave" options={{ title: "Bảng công" }} />
-      <Tabs.Screen name="salary" options={{ title: "Bảng Lương" }} />
-      <Tabs.Screen name="profile" options={{ title: "Cá Nhân" }} />
-    </Tabs>
+    <>
+      <Tabs
+        tabBar={(props) => <CustomTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+          headerStyle: {
+            backgroundColor: theme.primary,
+          },
+          headerTintColor: "#FFF",
+          headerTitleAlign: "center",
+        }}
+      >
+        <Tabs.Screen name="index" options={{ title: t("tabs.home") }} />
+        <Tabs.Screen name="checkin" options={{ title: t("tabs.checkin") }} />
+        <Tabs.Screen name="leave" options={{ title: t("tabs.leave") }} />
+        <Tabs.Screen name="salary" options={{ title: t("tabs.salary") }} />
+        <Tabs.Screen name="profile" options={{ title: t("tabs.profile") }} />
+      </Tabs>
+    </>
   );
 }
 

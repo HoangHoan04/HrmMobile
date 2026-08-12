@@ -8,7 +8,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   orientation: 'portrait',
   icon: './src/assets/images/icon.png',
   scheme: 'hrmmobile',
-  userInterfaceStyle: 'automatic',
+  userInterfaceStyle: 'light',
+  androidStatusBar: {
+    barStyle: 'dark-content',
+    backgroundColor: '#ffffff',
+    translucent: true,
+  },
   newArchEnabled: true,
   splash: {
     image: './src/assets/images/splash-icon.png',

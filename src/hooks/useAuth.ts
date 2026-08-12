@@ -1,4 +1,6 @@
 import { ROUTES } from "@/constants/common/routes";
+import { getApiErrorMessage } from "@/features/common";
+import { normalizeMobileProfile, MobileProfile } from "@/features/profile/types";
 import { showToastError, showToastSuccess } from "@/helper/ToastEventEmitter";
 import { rootApi } from "@/services";
 import { endpoints } from "@/services/api/endpoints";
@@ -48,34 +50,16 @@ export function useLogin() {
       }
     },
     onError: (error: any) => {
-      const status = error?.response?.status;
-      const data = error?.response?.data;
-      let errorMsg =
-        (typeof data === "string" && data) ||
-        data?.message ||
-        data?.title ||
-        error?.message ||
-        "Đã xảy ra lỗi khi đăng nhập";
-
-      if (!error?.response) {
-        errorMsg =
-          "Không kết nối được API. Kiểm tra API đang chạy (port 5036) và IP LAN. Thử: npx expo start -c";
-      } else if (status >= 500) {
-        errorMsg = "Máy chủ đang lỗi. Vui lòng thử lại sau.";
-      }
-
       console.error("[Auth] login failed", {
-        status: status ?? null,
+        status: error?.response?.status ?? null,
         baseURL: rootApi.defaults.baseURL,
         url: error?.config?.url,
         code: error?.code,
         message: error?.message,
-        responseData: data,
+        responseData: error?.response?.data,
       });
 
-      showToastError(
-        typeof errorMsg === "string" ? errorMsg : "Đã xảy ra lỗi khi đăng nhập",
-      );
+      showToastError(getApiErrorMessage(error, "login.loginFailed"));
     },
   });
 
@@ -168,7 +152,7 @@ export function useProfile() {
     data: profile = null,
     isLoading: loading,
     refetch,
-  } = useQuery({
+  } = useQuery<MobileProfile | null>({
     queryKey: ["profile"],
     enabled: isAuthenticated,
     queryFn: async () => {
@@ -177,17 +161,22 @@ export function useProfile() {
           skipErrorToast: true,
         } as any);
 
-        const employeeId = data?.employeeId || data?.EmployeeId;
+        const normalized = normalizeMobileProfile(data);
+        const employeeId = normalized?.employeeId;
         if (employeeId) {
           const currentUser = useAuthStore.getState().user;
           if (currentUser?.employeeId !== employeeId) {
-            const nextUser = { ...currentUser, employeeId };
+            const nextUser = {
+              ...currentUser,
+              employeeId,
+              companyId: normalized?.companyId ?? currentUser?.companyId,
+              branchId: normalized?.branchId ?? currentUser?.branchId,
+            };
             await tokenCache.setUser(nextUser);
             useAuthStore.setState({ user: nextUser });
           }
         }
-        console.log("[Mobile useProfile] Fetched profile:", data);
-        return data;
+        return normalized;
       } catch (error: any) {
         console.error("[Mobile useProfile] Failed:", error.message);
         if (error.response?.status === 401) {

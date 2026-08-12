@@ -28,3 +28,23 @@ export interface CreateLeavePayload {
   reason?: string;
   dayOffConfigId?: string | null;
 }
+
+export interface MobileLeaveConfigDto {
+  id: string;
+  code: string;
+  name: string;
+  dayOffType: string;
+  defaultDaysPerYear: number;
+  isPaid: boolean;
+}
+
+export interface MobileLeaveBalanceDto {
+  year: number;
+  annualTotal: number;
+  annualUsed: number;
+  annualPending: number;
+  annualRemaining: number;
+  sickUsed: number;
+  unpaidUsed: number;
+  configs: MobileLeaveConfigDto[];
+}

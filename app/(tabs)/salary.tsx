@@ -1,4 +1,6 @@
+import { DrawerMenuButton } from "@/components/layout/drawer";
 import { Colors } from "@/constants/common/Colors";
+import { useLanguageStore } from "@/store/languageStore";
 import { useThemeStore } from "@/store/themeStore";
 
 import { Ionicons } from "@expo/vector-icons";
@@ -42,16 +44,16 @@ const MOCK_PERIODS: SalaryPeriod[] = [
     netSalary: 18_520_000,
     grossSalary: 22_800_000,
     incomeItems: [
-      { label: "Lương cơ bản", amount: 18_000_000 },
-      { label: "Phụ cấp ăn trưa", amount: 730_000 },
-      { label: "Phụ cấp xăng xe", amount: 500_000 },
-      { label: "Thưởng KPI", amount: 3_570_000 },
+      { label: "salary.itemBasic", amount: 18_000_000 },
+      { label: "salary.itemLunch", amount: 730_000 },
+      { label: "salary.itemTransport", amount: 500_000 },
+      { label: "salary.itemKpi", amount: 3_570_000 },
     ],
     deductionItems: [
-      { label: "BHXH (8%)", amount: -1_440_000 },
-      { label: "BHYT (1.5%)", amount: -270_000 },
-      { label: "BHTN (1%)", amount: -180_000 },
-      { label: "Thuế TNCN", amount: -2_390_000 },
+      { label: "salary.itemBhxh", amount: -1_440_000 },
+      { label: "salary.itemBhyt", amount: -270_000 },
+      { label: "salary.itemBhtn", amount: -180_000 },
+      { label: "salary.itemPit", amount: -2_390_000 },
     ],
   },
   {
@@ -63,16 +65,16 @@ const MOCK_PERIODS: SalaryPeriod[] = [
     netSalary: 17_270_000,
     grossSalary: 21_550_000,
     incomeItems: [
-      { label: "Lương cơ bản", amount: 18_000_000 },
-      { label: "Phụ cấp ăn trưa", amount: 730_000 },
-      { label: "Phụ cấp xăng xe", amount: 500_000 },
-      { label: "Thưởng KPI", amount: 2_320_000 },
+      { label: "salary.itemBasic", amount: 18_000_000 },
+      { label: "salary.itemLunch", amount: 730_000 },
+      { label: "salary.itemTransport", amount: 500_000 },
+      { label: "salary.itemKpi", amount: 2_320_000 },
     ],
     deductionItems: [
-      { label: "BHXH (8%)", amount: -1_440_000 },
-      { label: "BHYT (1.5%)", amount: -270_000 },
-      { label: "BHTN (1%)", amount: -180_000 },
-      { label: "Thuế TNCN", amount: -2_390_000 },
+      { label: "salary.itemBhxh", amount: -1_440_000 },
+      { label: "salary.itemBhyt", amount: -270_000 },
+      { label: "salary.itemBhtn", amount: -180_000 },
+      { label: "salary.itemPit", amount: -2_390_000 },
     ],
   },
   {
@@ -84,16 +86,16 @@ const MOCK_PERIODS: SalaryPeriod[] = [
     netSalary: 18_100_000,
     grossSalary: 22_380_000,
     incomeItems: [
-      { label: "Lương cơ bản", amount: 18_000_000 },
-      { label: "Phụ cấp ăn trưa", amount: 730_000 },
-      { label: "Phụ cấp xăng xe", amount: 500_000 },
-      { label: "Thưởng KPI", amount: 3_150_000 },
+      { label: "salary.itemBasic", amount: 18_000_000 },
+      { label: "salary.itemLunch", amount: 730_000 },
+      { label: "salary.itemTransport", amount: 500_000 },
+      { label: "salary.itemKpi", amount: 3_150_000 },
     ],
     deductionItems: [
-      { label: "BHXH (8%)", amount: -1_440_000 },
-      { label: "BHYT (1.5%)", amount: -270_000 },
-      { label: "BHTN (1%)", amount: -180_000 },
-      { label: "Thuế TNCN", amount: -2_390_000 },
+      { label: "salary.itemBhxh", amount: -1_440_000 },
+      { label: "salary.itemBhyt", amount: -270_000 },
+      { label: "salary.itemBhtn", amount: -180_000 },
+      { label: "salary.itemPit", amount: -2_390_000 },
     ],
   },
   {
@@ -105,16 +107,16 @@ const MOCK_PERIODS: SalaryPeriod[] = [
     netSalary: 17_900_000,
     grossSalary: 22_180_000,
     incomeItems: [
-      { label: "Lương cơ bản", amount: 18_000_000 },
-      { label: "Phụ cấp ăn trưa", amount: 730_000 },
-      { label: "Phụ cấp xăng xe", amount: 500_000 },
-      { label: "Thưởng KPI", amount: 2_950_000 },
+      { label: "salary.itemBasic", amount: 18_000_000 },
+      { label: "salary.itemLunch", amount: 730_000 },
+      { label: "salary.itemTransport", amount: 500_000 },
+      { label: "salary.itemKpi", amount: 2_950_000 },
     ],
     deductionItems: [
-      { label: "BHXH (8%)", amount: -1_440_000 },
-      { label: "BHYT (1.5%)", amount: -270_000 },
-      { label: "BHTN (1%)", amount: -180_000 },
-      { label: "Thuế TNCN", amount: -2_390_000 },
+      { label: "salary.itemBhxh", amount: -1_440_000 },
+      { label: "salary.itemBhyt", amount: -270_000 },
+      { label: "salary.itemBhtn", amount: -180_000 },
+      { label: "salary.itemPit", amount: -2_390_000 },
     ],
   },
 ];
@@ -127,6 +129,7 @@ export default function SalaryScreen() {
   const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
   const insets = useSafeAreaInsets();
+  const { t } = useLanguageStore();
   const [currentPeriodId, setCurrentPeriodId] = useState(MOCK_PERIODS[0].id);
   const [amountVisible, setAmountVisible] = useState(true);
   const [incomeExpanded, setIncomeExpanded] = useState(false);
@@ -187,9 +190,9 @@ export default function SalaryScreen() {
     : MOCK_PERIODS.slice(1, 4);
 
   const statusMeta = {
-    paid: { label: "Đã thanh toán", color: "#10B981", bg: "#E6F4EA" },
-    pending: { label: "Chưa thanh toán", color: "#F59E0B", bg: "#FEF3C7" },
-    processing: { label: "Đang xử lý", color: "#3B82F6", bg: "#EFF6FF" },
+    paid: { label: t("salary.statusPaid"), color: "#10B981", bg: "#E6F4EA" },
+    pending: { label: t("salary.statusPending"), color: "#F59E0B", bg: "#FEF3C7" },
+    processing: { label: t("salary.statusProcessing"), color: "#3B82F6", bg: "#EFF6FF" },
   };
   const sm = statusMeta[currentPeriod.status];
 
@@ -213,22 +216,25 @@ export default function SalaryScreen() {
       >
         <View style={styles.headerRow}>
           <Text style={[styles.headerTitle, { color: theme.textMain }]}>
-            Bảng lương
+            {t("salary.title")}
           </Text>
-          <TouchableOpacity
-            style={[
-              styles.iconBtn,
-              { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            onPress={() => setAmountVisible((v) => !v)}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={amountVisible ? "eye-outline" : "eye-off-outline"}
-              size={20}
-              color={theme.textMain}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[
+                styles.iconBtn,
+                { backgroundColor: theme.cardBg, borderColor: theme.border },
+              ]}
+              onPress={() => setAmountVisible((v) => !v)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={amountVisible ? "eye-outline" : "eye-off-outline"}
+                size={20}
+                color={theme.textMain}
+              />
+            </TouchableOpacity>
+            <DrawerMenuButton style={{ borderRadius: 12, width: 40, height: 40 }} />
+          </View>
         </View>
 
         <View style={styles.periodRow}>
@@ -244,7 +250,7 @@ export default function SalaryScreen() {
 
           <View style={[styles.periodPill, { backgroundColor: theme.primary }]}>
             <Text style={styles.periodPillText}>
-              Kỳ lương Tháng {currentPeriod.month}/{currentPeriod.year}
+              {t("salary.periodLabel", { m: currentPeriod.month, y: currentPeriod.year })}
             </Text>
           </View>
 
@@ -275,7 +281,7 @@ export default function SalaryScreen() {
           ]}
         >
           <Text style={[styles.heroLabel, { color: theme.textSecondary }]}>
-            THỰC NHẬN (NET)
+            {t("salary.netLabel")}
           </Text>
 
           <Text style={[styles.heroAmount, { color: theme.primary }]}>
@@ -284,7 +290,7 @@ export default function SalaryScreen() {
 
           {currentPeriod.status === "pending" && (
             <View style={styles.estBadge}>
-              <Text style={styles.estBadgeText}>Dự kiến</Text>
+              <Text style={styles.estBadgeText}>{t("salary.estimated")}</Text>
             </View>
           )}
 
@@ -302,7 +308,7 @@ export default function SalaryScreen() {
               <Text
                 style={[styles.heroFooterText, { color: theme.textSecondary }]}
               >
-                Ngày trả: {currentPeriod.payDate}
+                {t("salary.payDate", { date: currentPeriod.payDate })}
               </Text>
             </View>
             <View style={styles.heroFooterItem}>
@@ -314,7 +320,7 @@ export default function SalaryScreen() {
               <Text
                 style={[styles.heroFooterText, { color: theme.textSecondary }]}
               >
-                Gross:{" "}
+                {t("salary.gross")}:{" "}
                 {amountVisible ? formatMoney(currentPeriod.grossSalary) : mask}
               </Text>
             </View>
@@ -342,7 +348,7 @@ export default function SalaryScreen() {
                 <Ionicons name="add-circle-outline" size={16} color="#10B981" />
               </View>
               <Text style={[styles.accordionTitle, { color: theme.textMain }]}>
-                Thu nhập
+                {t("salary.income")}
               </Text>
             </View>
             <View style={styles.accordionRight}>
@@ -367,7 +373,7 @@ export default function SalaryScreen() {
                   <Text
                     style={[styles.lineLabel, { color: theme.textSecondary }]}
                   >
-                    {item.label}
+                    {t(item.label)}
                   </Text>
                   <Text style={[styles.lineValue, { color: "#10B981" }]}>
                     {amountVisible ? `+${formatMoney(item.amount)}` : mask}
@@ -403,7 +409,7 @@ export default function SalaryScreen() {
                 />
               </View>
               <Text style={[styles.accordionTitle, { color: theme.textMain }]}>
-                Khấu trừ
+                {t("salary.deduction")}
               </Text>
             </View>
             <View style={styles.accordionRight}>
@@ -428,7 +434,7 @@ export default function SalaryScreen() {
                   <Text
                     style={[styles.lineLabel, { color: theme.textSecondary }]}
                   >
-                    {item.label}
+                    {t(item.label)}
                   </Text>
                   <Text style={[styles.lineValue, { color: "#EF4444" }]}>
                     {amountVisible ? formatMoney(item.amount) : mask}
@@ -452,14 +458,16 @@ export default function SalaryScreen() {
               color={netDiff >= 0 ? "#10B981" : "#EF4444"}
             />
             <Text style={[styles.compareText, { color: theme.textSecondary }]}>
-              So với tháng {prevPeriod!.month}:{" "}
+              {t("salary.compareToMonth", { m: prevPeriod!.month })}:{" "}
               <Text
                 style={{
                   color: netDiff >= 0 ? "#10B981" : "#EF4444",
                   fontWeight: "800",
                 }}
               >
-                {netDiff >= 0 ? "▲ tăng " : "▼ giảm "}
+                {netDiff >= 0
+                  ? `▲ ${t("salary.increased")} `
+                  : `▼ ${t("salary.decreased")} `}
                 {amountVisible ? formatMoney(Math.abs(netDiff)) : mask}
               </Text>
             </Text>
@@ -476,12 +484,12 @@ export default function SalaryScreen() {
             color={theme.primary}
           />
           <Text style={[styles.pdfBtnText, { color: theme.primary }]}>
-            Xem phiếu lương chi tiết (PDF)
+            {t("salary.viewPdf")}
           </Text>
         </TouchableOpacity>
 
         <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-          LỊCH SỬ PHIẾU LƯƠNG
+          {t("salary.historyTitle")}
         </Text>
 
         {historyItems.map((p) => (
@@ -500,12 +508,12 @@ export default function SalaryScreen() {
           >
             <View>
               <Text style={[styles.historyMonth, { color: theme.textMain }]}>
-                Tháng {p.month}/{p.year}
+                {t("salary.monthLabel", { m: p.month, y: p.year })}
               </Text>
               <Text
                 style={[styles.historyPayDate, { color: theme.textSecondary }]}
               >
-                Trả ngày {p.payDate}
+                {t("salary.paidOn", { date: p.payDate })}
               </Text>
             </View>
 
@@ -543,7 +551,7 @@ export default function SalaryScreen() {
             onPress={() => setShowAllHistory((v) => !v)}
           >
             <Text style={[styles.showMoreText, { color: theme.primary }]}>
-              {showAllHistory ? "Thu gọn" : "Xem tất cả"}
+              {showAllHistory ? t("common.collapse") : t("common.viewAll")}
             </Text>
             <Ionicons
               name={showAllHistory ? "chevron-up" : "chevron-down"}
@@ -568,6 +576,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headerTitle: { fontSize: 24, fontWeight: "800" },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   iconBtn: {
     width: 40,
     height: 40,

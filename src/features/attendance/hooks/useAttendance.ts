@@ -1,29 +1,21 @@
+import { showAlert, showConfirm } from "@/components/ui/confirm";
 import {
   showToastError,
   showToastSuccess,
 } from "@/helper/ToastEventEmitter";
+import {
+  getApiErrorMessage,
+  t,
+} from "@/features/common";
 import { rootApi } from "@/services";
 import { endpoints } from "@/services/api/endpoints";
 import { MobileMonthDto, MobileTodayDto } from "@/features/attendance/types";
 import * as Location from "expo-location";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import { Alert } from "react-native";
+import { Linking, Platform } from "react-native";
 
-function extractApiError(error: any, fallback: string): string {
-  const data = error?.response?.data;
-  if (typeof data === "string" && data.trim()) return data;
-  if (typeof data?.message === "string" && data.message.trim())
-    return data.message;
-  if (typeof error?.message === "string" && error.message.trim())
-    return error.message;
-  return fallback;
-}
-
-async function getPunchCoordinates(): Promise<{
-  latitude: number;
-  longitude: number;
-}> {
+export async function ensureLocationPermission(): Promise<boolean> {
   const current = await Location.getForegroundPermissionsAsync();
   let status = current.status;
 
@@ -32,10 +24,21 @@ async function getPunchCoordinates(): Promise<{
     status = requested.status;
   }
 
-  if (status !== Location.PermissionStatus.GRANTED) {
-    throw new Error(
-      "Cần quyền vị trí để chấm công. Vui lòng bật quyền vị trí trong Cài đặt.",
-    );
+  return status === Location.PermissionStatus.GRANTED;
+}
+
+async function getPunchCoordinates(): Promise<{
+  latitude: number;
+  longitude: number;
+}> {
+  const services = await Location.hasServicesEnabledAsync();
+  if (!services) {
+    throw new Error(t("attendance.gpsDisabled"));
+  }
+
+  const granted = await ensureLocationPermission();
+  if (!granted) {
+    throw new Error(t("attendance.locationPermissionRequired"));
   }
 
   const position = await Location.getCurrentPositionAsync({
@@ -46,6 +49,20 @@ async function getPunchCoordinates(): Promise<{
     latitude: position.coords.latitude,
     longitude: position.coords.longitude,
   };
+}
+
+function isLocationSetupError(message: string): boolean {
+  const gps = t("attendance.gpsDisabled");
+  const permission = t("attendance.locationPermissionRequired");
+  const lower = message.toLowerCase();
+  return (
+    message === gps ||
+    message === permission ||
+    lower.includes("gps") ||
+    lower.includes("location") ||
+    lower.includes("cài đặt") ||
+    lower.includes("settings")
+  );
 }
 
 export function useAttendance() {
@@ -66,9 +83,8 @@ export function useAttendance() {
           skipErrorToast: true,
         } as any);
         return data;
-      } catch (err: any) {
-        const message = extractApiError(err, "Không tải được trạng thái chấm công");
-        showToastError(message);
+      } catch (err: unknown) {
+        showToastError(getApiErrorMessage(err, "attendance.loadTodayFailed"));
         throw err;
       }
     },
@@ -78,7 +94,6 @@ export function useAttendance() {
     data: month = null,
     isLoading: loadingMonth,
     error: monthError,
-    refetch: refetchMonthQuery,
   } = useQuery<MobileMonthDto | null>({
     queryKey: ["attendance", "month", selectedYear, selectedMonth],
     queryFn: async () => {
@@ -89,9 +104,8 @@ export function useAttendance() {
           { skipErrorToast: true } as any,
         );
         return data;
-      } catch (err: any) {
-        const message = extractApiError(err, "Không tải được bảng công tháng");
-        showToastError(message);
+      } catch (err: unknown) {
+        showToastError(getApiErrorMessage(err, "attendance.loadMonthFailed"));
         throw err;
       }
     },
@@ -117,16 +131,42 @@ export function useAttendance() {
     onSuccess: ({ data, action }) => {
       queryClient.setQueryData(["attendance", "today"], data);
       queryClient.invalidateQueries({ queryKey: ["attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
       showToastSuccess(
-        action === "checkIn" ? "Vào ca thành công" : "Ra ca thành công",
+        action === "checkIn"
+          ? t("attendance.checkInSuccess")
+          : t("attendance.checkOutSuccess"),
       );
     },
-    onError: (err: any, action) => {
-      const message = extractApiError(
+    onError: (err: unknown, action) => {
+      const message = getApiErrorMessage(
         err,
-        action === "checkIn" ? "Không thể vào ca" : "Không thể ra ca",
+        action === "checkIn"
+          ? "attendance.checkInFailed"
+          : "attendance.checkOutFailed",
       );
-      Alert.alert("Chấm công thất bại", message);
+      if (isLocationSetupError(message)) {
+        showConfirm({
+          title: t("attendance.punchFailedTitle"),
+          message,
+          variant: "error",
+          buttons: [
+            { text: t("common.close"), style: "cancel" },
+            {
+              text: t("attendance.openSettings"),
+              style: "default",
+              onPress: () => {
+                if (Platform.OS === "ios") Linking.openURL("app-settings:");
+                else Linking.openSettings();
+              },
+            },
+          ],
+        });
+      } else {
+        showAlert(t("attendance.punchFailedTitle"), message, {
+          variant: "error",
+        });
+      }
       showToastError(message);
     },
   });
@@ -134,9 +174,19 @@ export function useAttendance() {
   const fetchMonth = useCallback(async (year: number, monthNum: number) => {
     setSelectedYear(year);
     setSelectedMonth(monthNum);
-    const result = await refetchMonthQuery();
-    return result.data as MobileMonthDto;
-  }, [refetchMonthQuery]);
+    const result = await queryClient.fetchQuery({
+      queryKey: ["attendance", "month", year, monthNum],
+      queryFn: async () => {
+        const { data } = await rootApi.post(
+          endpoints.timekeeping.month,
+          { year, month: monthNum },
+          { skipErrorToast: true } as any,
+        );
+        return data as MobileMonthDto;
+      },
+    });
+    return result;
+  }, [queryClient]);
 
   const checkIn = useCallback(() => punchMutation.mutateAsync("checkIn"), [punchMutation]);
   const checkOut = useCallback(() => punchMutation.mutateAsync("checkOut"), [punchMutation]);
@@ -147,10 +197,14 @@ export function useAttendance() {
     loadingToday,
     loadingMonth,
     punching: punchMutation.isPending,
-    error: (todayError || monthError) ? extractApiError(todayError || monthError, "Có lỗi xảy ra") : null,
+    error:
+      todayError || monthError
+        ? getApiErrorMessage(todayError || monthError, "attendance.genericError")
+        : null,
     fetchToday,
     fetchMonth,
     checkIn,
     checkOut,
+    ensureLocationPermission,
   };
 }

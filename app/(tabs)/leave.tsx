@@ -1,15 +1,34 @@
 import { Badge, BadgeText } from "@/components/ui/Badge";
+import { DrawerMenuButton } from "@/components/layout/drawer";
+import { showConfirm } from "@/components/ui/confirm";
+import { DateInput } from "@/components/ui/input/DateInput";
 import { Colors } from "@/constants/common/Colors";
+import {
+  DAY_OFF_STATUS,
+  DAY_OFF_STATUS_OPTIONS,
+  DayOffStatusCode,
+  resolveDayOffStatus,
+} from "@/constants/enums/dayOffStatus";
+import {
+  DAY_OFF_TYPE,
+  DAY_OFF_TYPE_OPTIONS,
+  DayOffTypeCode,
+  resolveDayOffType,
+} from "@/constants/enums/dayOffType";
+import { formatDisplayDate } from "@/features/common";
+import { showToastError } from "@/helper/ToastEventEmitter";
+import {
+  MobileLeaveConfigDto,
+  RegisterDayOffDto,
+  useLeave,
+} from "@/hooks";
+import { useLanguageStore } from "@/store/languageStore";
 import { useThemeStore } from "@/store/themeStore";
-
-import { enumData } from "@/constants/enums/enumData";
-import { RegisterDayOffDto, useLeave } from "@/hooks";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   RefreshControl,
   ScrollView,
@@ -17,22 +36,19 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  useColorScheme,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type LeaveUiStatus = "pending" | "approved" | "rejected" | "cancelled";
-type LeaveUiType = "annual" | "sick" | "unpaid" | "other";
-
 interface LeaveRequest {
   id: string;
-  type: LeaveUiType;
+  type: DayOffTypeCode;
   typeName: string;
+  typeLabelKey: string;
   typeIcon: string;
   typeColor: string;
-  status: LeaveUiStatus;
-  statusText: string;
+  status: DayOffStatusCode;
+  statusLabelKey: string;
   statusAction: "warning" | "success" | "error" | "muted";
   startDate: string;
   endDate: string;
@@ -42,59 +58,24 @@ interface LeaveRequest {
   submittedAt: string;
 }
 
-function formatDisplayDate(value?: string | null): string {
-  if (!value) return "--/--/----";
-  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("vi-VN");
-}
-
-function parseInputDateToIso(input: string): string | null {
-  const trimmed = input.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
-  if (!match) return null;
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+function formatDays(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 function mapLeaveDto(dto: RegisterDayOffDto): LeaveRequest {
-  const typeKey = (dto.dayOffType || "ANNUAL").toUpperCase();
-  const typeMeta =
-    enumData.DAY_OFF_TYPE[typeKey as keyof typeof enumData.DAY_OFF_TYPE] ||
-    enumData.DAY_OFF_TYPE.OTHER;
-  const statusKey = (dto.status || "PENDING").toUpperCase();
-  const statusMeta =
-    enumData.DAY_OFF_STATUS[
-      statusKey as keyof typeof enumData.DAY_OFF_STATUS
-    ] || enumData.DAY_OFF_STATUS.PENDING;
-
-  const typeUiMap: Record<string, LeaveUiType> = {
-    ANNUAL: "annual",
-    SICK: "sick",
-    UNPAID: "unpaid",
-    OTHER: "other",
-  };
-  const statusUiMap: Record<string, LeaveUiStatus> = {
-    PENDING: "pending",
-    APPROVED: "approved",
-    REJECTED: "rejected",
-    CANCELLED: "cancelled",
-  };
+  const typeMeta = resolveDayOffType(dto.dayOffType);
+  const statusMeta = resolveDayOffStatus(dto.status);
 
   return {
     id: dto.id,
-    type: typeUiMap[typeKey] || "other",
-    typeName: dto.dayOffConfigName || typeMeta.label,
+    type: typeMeta.code as DayOffTypeCode,
+    typeName: dto.dayOffConfigName || "",
+    typeLabelKey: typeMeta.labelKey,
     typeIcon: typeMeta.icon,
     typeColor: typeMeta.color,
-    status: statusUiMap[statusKey] || "pending",
-    statusText: statusMeta.label,
+    status: statusMeta.code as DayOffStatusCode,
+    statusLabelKey: statusMeta.labelKey,
     statusAction: statusMeta.action,
     startDate: formatDisplayDate(dto.fromDate),
     endDate: formatDisplayDate(dto.toDate),
@@ -105,12 +86,27 @@ function mapLeaveDto(dto: RegisterDayOffDto): LeaveRequest {
   };
 }
 
+function toFormOptions(configs: MobileLeaveConfigDto[]): MobileLeaveConfigDto[] {
+  if (configs.length > 0) return configs;
+  return DAY_OFF_TYPE_OPTIONS.map((item) => ({
+    id: "",
+    code: item.code,
+    name: "",
+    dayOffType: item.code,
+    defaultDaysPerYear: 0,
+    isPaid: item.isPaid,
+  }));
+}
+
 export default function LeaveScreen() {
   const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
+  const { t, language } = useLanguageStore();
   const insets = useSafeAreaInsets();
   const {
     leaves: leaveDtos,
+    balance,
+    configs,
     loading,
     submitting,
     fetchMyList,
@@ -125,18 +121,29 @@ export default function LeaveScreen() {
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [formType, setFormType] = useState<
-    "ANNUAL" | "SICK" | "UNPAID" | "OTHER"
-  >("ANNUAL");
+  const [formConfigId, setFormConfigId] = useState<string | null>(null);
+  const [formType, setFormType] = useState<DayOffTypeCode>(
+    DAY_OFF_TYPE.ANNUAL.code as DayOffTypeCode,
+  );
   const [formStartDate, setFormStartDate] = useState("");
   const [formEndDate, setFormEndDate] = useState("");
   const [formReason, setFormReason] = useState("");
+
+  const formOptions = useMemo(() => toFormOptions(configs), [configs]);
 
   useFocusEffect(
     useCallback(() => {
       fetchMyList().catch(() => undefined);
     }, [fetchMyList]),
   );
+
+  useEffect(() => {
+    if (!isCreateOpen) return;
+    const first = formOptions[0];
+    if (!first) return;
+    setFormConfigId(first.id || null);
+    setFormType(resolveDayOffType(first.dayOffType).code as DayOffTypeCode);
+  }, [isCreateOpen, formOptions]);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -149,13 +156,14 @@ export default function LeaveScreen() {
   }, [fetchMyList]);
 
   const handleCancelLeave = (id: string) => {
-    Alert.alert(
-      "Hủy đơn",
-      "Bạn có chắc chắn muốn hủy đơn xin này không?",
-      [
-        { text: "Không", style: "cancel" },
+    showConfirm({
+      title: t("leave.cancelTitle"),
+      message: t("leave.cancelConfirm"),
+      variant: "warning",
+      buttons: [
+        { text: t("common.no"), style: "cancel" },
         {
-          text: "Hủy đơn",
+          text: t("leave.cancelAction"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -165,62 +173,58 @@ export default function LeaveScreen() {
           },
         },
       ],
-      { cancelable: true },
-    );
+    });
   };
 
   const handleCreateSubmit = async () => {
-    const fromDate = parseInputDateToIso(formStartDate);
-    const toDate = parseInputDateToIso(formEndDate);
-    if (!fromDate || !toDate || !formReason.trim()) {
-      Alert.alert(
-        "Lỗi",
-        "Vui lòng nhập đầy đủ từ ngày, đến ngày (DD/MM/YYYY) và lý do.",
-      );
+    if (!formStartDate || !formEndDate || !formReason.trim()) {
+      showToastError(t("leave.validationRequired"));
+      return;
+    }
+    if (formEndDate < formStartDate) {
+      showToastError(t("leave.validationDateOrder"));
       return;
     }
 
     try {
       await createLeave({
         dayOffType: formType,
-        fromDate,
-        toDate,
+        fromDate: formStartDate,
+        toDate: formEndDate,
         reason: formReason.trim(),
+        dayOffConfigId: formConfigId || null,
       });
       setIsCreateOpen(false);
       setFormStartDate("");
       setFormEndDate("");
       setFormReason("");
-      setFormType("ANNUAL");
+      setFormConfigId(null);
+      setFormType(DAY_OFF_TYPE.ANNUAL.code as DayOffTypeCode);
     } catch {}
   };
 
-  const balance = useMemo(() => {
-    const approvedAnnual = leaves
-      .filter((l) => l.type === "annual" && l.status === "approved")
-      .reduce((sum, l) => sum + l.days, 0);
-    const sickUsed = leaves
-      .filter((l) => l.type === "sick" && l.status === "approved")
-      .reduce((sum, l) => sum + l.days, 0);
-    const total = 12;
-    const remaining = Math.max(0, total - approvedAnnual);
-    return { total, used: approvedAnnual, remaining, sickUsed };
-  }, [leaves]);
+  const balanceUi = useMemo(() => {
+    const total = Number(balance?.annualTotal) || 0;
+    const remaining = Number(balance?.annualRemaining) || 0;
+    const used = Number(balance?.annualUsed) || 0;
+    const sickUsed = Number(balance?.sickUsed) || 0;
+    const unpaidUsed = Number(balance?.unpaidUsed) || 0;
+    const progress =
+      total > 0 ? Math.min(100, Math.max(0, (remaining / total) * 100)) : 0;
+    return { total, remaining, used, sickUsed, unpaidUsed, progress };
+  }, [balance]);
 
   const counts = useMemo(() => {
-    let pending = 0;
-    let approved = 0;
-    let rejected = 0;
-    let cancelled = 0;
-
+    const next: Record<DayOffStatusCode, number> = {
+      PENDING: 0,
+      APPROVED: 0,
+      REJECTED: 0,
+      CANCELLED: 0,
+    };
     leaves.forEach((l) => {
-      if (l.status === "pending") pending++;
-      else if (l.status === "approved") approved++;
-      else if (l.status === "rejected") rejected++;
-      else if (l.status === "cancelled") cancelled++;
+      next[l.status] += 1;
     });
-
-    return { pending, approved, rejected, cancelled };
+    return next;
   }, [leaves]);
 
   const groupedLeaves = useMemo(() => {
@@ -233,7 +237,9 @@ export default function LeaveScreen() {
     filtered.forEach((item) => {
       const parts = item.submittedAt.split("/");
       const monthStr =
-        parts.length === 3 ? `Tháng ${parts[1]}/${parts[2]}` : "Khác";
+        parts.length === 3
+          ? t("leave.monthGroup", { m: parts[1], y: parts[2] })
+          : t("leave.other");
       if (!groups[monthStr]) {
         groups[monthStr] = [];
       }
@@ -241,9 +247,39 @@ export default function LeaveScreen() {
     });
 
     return groups;
-  }, [leaves, selectedFilter]);
+  }, [leaves, selectedFilter, t, language]);
 
   const hasItems = Object.keys(groupedLeaves).length > 0;
+
+  const typeLabel = (option: MobileLeaveConfigDto) => {
+    if (option.name?.trim()) return option.name;
+    return t(resolveDayOffType(option.dayOffType || option.code).labelKey);
+  };
+
+  const selectFormOption = (option: MobileLeaveConfigDto) => {
+    setFormConfigId(option.id || null);
+    setFormType(
+      resolveDayOffType(option.dayOffType || option.code).code as DayOffTypeCode,
+    );
+  };
+
+  const isOptionActive = (option: MobileLeaveConfigDto) => {
+    if (option.id && formConfigId) return option.id === formConfigId;
+    return resolveDayOffType(option.dayOffType || option.code).code === formType;
+  };
+
+  const filterLabel = (code: DayOffStatusCode, n: number) => {
+    if (code === DAY_OFF_STATUS.PENDING.code) {
+      return t("leave.filterPending", { n });
+    }
+    if (code === DAY_OFF_STATUS.APPROVED.code) {
+      return t("leave.filterApproved", { n });
+    }
+    if (code === DAY_OFF_STATUS.REJECTED.code) {
+      return t("leave.filterRejected", { n });
+    }
+    return t("leave.filterCancelled", { n });
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -263,8 +299,9 @@ export default function LeaveScreen() {
       >
         <View style={styles.headerRow}>
           <Text style={[styles.headerTitle, { color: theme.textMain }]}>
-            Đơn Từ
+            {t("leave.title")}
           </Text>
+          <DrawerMenuButton />
         </View>
 
         <View
@@ -275,12 +312,12 @@ export default function LeaveScreen() {
         >
           <View style={styles.balanceHeader}>
             <Text style={[styles.balanceTitle, { color: theme.textSecondary }]}>
-              PHÉP NĂM CÒN LẠI
+              {t("leave.annualRemaining")}
             </Text>
             <Text style={[styles.balanceNum, { color: theme.primary }]}>
-              {balance.remaining}{" "}
+              {formatDays(balanceUi.remaining)}{" "}
               <Text style={{ fontSize: 13, color: theme.textSecondary }}>
-                / {balance.total} ngày
+                {t("leave.daysOfTotal", { n: formatDays(balanceUi.total) })}
               </Text>
             </Text>
           </View>
@@ -298,14 +335,17 @@ export default function LeaveScreen() {
                 styles.progressFill,
                 {
                   backgroundColor: theme.primary,
-                  width: `${(balance.remaining / balance.total) * 100}%`,
+                  width: `${balanceUi.progress}%`,
                 },
               ]}
             />
           </View>
 
           <Text style={[styles.balanceSubText, { color: theme.textSecondary }]}>
-            Nghỉ ốm: đã dùng {balance.sickUsed} ngày · Nghỉ không lương: 0 ngày
+            {t("leave.sickUnpaidSummary", {
+              sick: formatDays(balanceUi.sickUsed),
+              unpaid: formatDays(balanceUi.unpaidUsed),
+            })}
           </Text>
         </View>
 
@@ -331,93 +371,43 @@ export default function LeaveScreen() {
                   : { color: theme.textMain },
               ]}
             >
-              Tất cả
+              {t("common.all")}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              selectedFilter === "pending"
-                ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                : { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            onPress={() => setSelectedFilter("pending")}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilter === "pending"
-                  ? { color: "#FFFFFF" }
-                  : { color: theme.textMain },
-              ]}
-            >
-              Đang duyệt ({counts.pending})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              selectedFilter === "approved"
-                ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                : { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            onPress={() => setSelectedFilter("approved")}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilter === "approved"
-                  ? { color: "#FFFFFF" }
-                  : { color: theme.textMain },
-              ]}
-            >
-              Đã duyệt ({counts.approved})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              selectedFilter === "rejected"
-                ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                : { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            onPress={() => setSelectedFilter("rejected")}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilter === "rejected"
-                  ? { color: "#FFFFFF" }
-                  : { color: theme.textMain },
-              ]}
-            >
-              Từ chối ({counts.rejected})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              selectedFilter === "cancelled"
-                ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                : { backgroundColor: theme.cardBg, borderColor: theme.border },
-            ]}
-            onPress={() => setSelectedFilter("cancelled")}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilter === "cancelled"
-                  ? { color: "#FFFFFF" }
-                  : { color: theme.textMain },
-              ]}
-            >
-              Đã hủy ({counts.cancelled})
-            </Text>
-          </TouchableOpacity>
+          {DAY_OFF_STATUS_OPTIONS.map((status) => {
+            const code = status.code as DayOffStatusCode;
+            const active = selectedFilter === code;
+            return (
+              <TouchableOpacity
+                key={code}
+                style={[
+                  styles.filterChip,
+                  active
+                    ? {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      }
+                    : {
+                        backgroundColor: theme.cardBg,
+                        borderColor: theme.border,
+                      },
+                ]}
+                onPress={() => setSelectedFilter(code)}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    active
+                      ? { color: "#FFFFFF" }
+                      : { color: theme.textMain },
+                  ]}
+                >
+                  {filterLabel(code, counts[code])}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         {loading && leaves.length === 0 ? (
@@ -429,7 +419,7 @@ export default function LeaveScreen() {
                 { color: theme.textSecondary, marginTop: 12 },
               ]}
             >
-              Đang tải đơn từ...
+              {t("leave.loading")}
             </Text>
           </View>
         ) : hasItems ? (
@@ -476,11 +466,11 @@ export default function LeaveScreen() {
                           { color: theme.textMain },
                         ]}
                       >
-                        {item.typeName}
+                        {item.typeName || t(item.typeLabelKey)}
                       </Text>
                     </View>
                     <Badge action={item.statusAction}>
-                      <BadgeText>{item.statusText}</BadgeText>
+                      <BadgeText>{t(item.statusLabelKey)}</BadgeText>
                     </Badge>
                   </View>
 
@@ -490,7 +480,7 @@ export default function LeaveScreen() {
                     {item.startDate}{" "}
                     {item.startDate !== item.endDate && `→ ${item.endDate}`} ·{" "}
                     <Text style={{ fontWeight: "700", color: theme.primary }}>
-                      {item.days} ngày
+                      {t("leave.daysCount", { n: item.days })}
                     </Text>
                   </Text>
 
@@ -501,11 +491,11 @@ export default function LeaveScreen() {
                         { color: theme.textSecondary },
                       ]}
                     >
-                      Gửi lúc: {item.submittedAt} · Người duyệt:{" "}
-                      {item.approverName}
+                      {t("leave.submittedAt")}: {item.submittedAt} ·{" "}
+                      {t("leave.approver")}: {item.approverName}
                     </Text>
 
-                    {item.status === "pending" && (
+                    {item.status === DAY_OFF_STATUS.PENDING.code && (
                       <TouchableOpacity
                         style={[
                           styles.cardCancelBtn,
@@ -513,7 +503,9 @@ export default function LeaveScreen() {
                         ]}
                         onPress={() => handleCancelLeave(item.id)}
                       >
-                        <Text style={styles.cardCancelBtnText}>Hủy đơn</Text>
+                        <Text style={styles.cardCancelBtnText}>
+                          {t("leave.cancelAction")}
+                        </Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -529,18 +521,18 @@ export default function LeaveScreen() {
               color={theme.textSecondary + "40"}
             />
             <Text style={[styles.emptyStateTitle, { color: theme.textMain }]}>
-              Không có đơn từ nào
+              {t("leave.emptyTitle")}
             </Text>
             <Text
               style={[styles.emptyStateDesc, { color: theme.textSecondary }]}
             >
-              Bạn chưa gửi đơn từ nào hoặc bộ lọc hiện tại không khớp dữ liệu.
+              {t("leave.emptyDesc")}
             </Text>
             <TouchableOpacity
               style={[styles.emptyCta, { backgroundColor: theme.primary }]}
               onPress={() => setIsCreateOpen(true)}
             >
-              <Text style={styles.emptyCtaText}>Tạo đơn ngay</Text>
+              <Text style={styles.emptyCtaText}>{t("leave.createNow")}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -555,7 +547,7 @@ export default function LeaveScreen() {
         onPress={() => setIsCreateOpen(true)}
       >
         <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabBtnText}>Tạo đơn</Text>
+        <Text style={styles.fabBtnText}>{t("leave.create")}</Text>
       </TouchableOpacity>
 
       {selectedLeave && (
@@ -571,7 +563,7 @@ export default function LeaveScreen() {
             >
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: theme.textMain }]}>
-                  Chi tiết đơn từ
+                  {t("leave.detailTitle")}
                 </Text>
                 <TouchableOpacity onPress={() => setIsDetailOpen(false)}>
                   <Ionicons name="close" size={24} color={theme.textMain} />
@@ -583,7 +575,7 @@ export default function LeaveScreen() {
                   <Text
                     style={[styles.detailLabel, { color: theme.textSecondary }]}
                   >
-                    Loại đơn
+                    {t("leave.type")}
                   </Text>
                   <Text
                     style={[
@@ -591,7 +583,7 @@ export default function LeaveScreen() {
                       { color: theme.textMain, fontWeight: "800" },
                     ]}
                   >
-                    {selectedLeave.typeName}
+                    {selectedLeave.typeName || t(selectedLeave.typeLabelKey)}
                   </Text>
                 </View>
 
@@ -599,11 +591,11 @@ export default function LeaveScreen() {
                   <Text
                     style={[styles.detailLabel, { color: theme.textSecondary }]}
                   >
-                    Thời gian
+                    {t("leave.period")}
                   </Text>
                   <Text style={[styles.detailValue, { color: theme.textMain }]}>
                     {selectedLeave.startDate} → {selectedLeave.endDate} (
-                    {selectedLeave.days} ngày)
+                    {t("leave.daysCount", { n: selectedLeave.days })})
                   </Text>
                 </View>
 
@@ -611,7 +603,7 @@ export default function LeaveScreen() {
                   <Text
                     style={[styles.detailLabel, { color: theme.textSecondary }]}
                   >
-                    Lý do
+                    {t("leave.reason")}
                   </Text>
                   <Text style={[styles.detailValue, { color: theme.textMain }]}>
                     {selectedLeave.reason}
@@ -622,7 +614,7 @@ export default function LeaveScreen() {
                   <Text
                     style={[styles.detailLabel, { color: theme.textSecondary }]}
                   >
-                    Người duyệt
+                    {t("leave.approver")}
                   </Text>
                   <Text style={[styles.detailValue, { color: theme.textMain }]}>
                     {selectedLeave.approverName}
@@ -633,28 +625,30 @@ export default function LeaveScreen() {
                   <Text
                     style={[styles.detailLabel, { color: theme.textSecondary }]}
                   >
-                    Trạng thái
+                    {t("leave.status")}
                   </Text>
                   <Badge action={selectedLeave.statusAction}>
-                    <BadgeText>{selectedLeave.statusText}</BadgeText>
+                    <BadgeText>{t(selectedLeave.statusLabelKey)}</BadgeText>
                   </Badge>
                 </View>
               </View>
 
               <View style={styles.modalFooter}>
-                {selectedLeave.status === "pending" && (
+                {selectedLeave.status === DAY_OFF_STATUS.PENDING.code && (
                   <TouchableOpacity
                     style={[styles.cancelBtn, { borderColor: "#EF4444" }]}
                     onPress={() => handleCancelLeave(selectedLeave.id)}
                   >
-                    <Text style={styles.cancelBtnText}>Hủy yêu cầu</Text>
+                    <Text style={styles.cancelBtnText}>
+                      {t("leave.cancelRequest")}
+                    </Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
                   style={[styles.closeBtn, { backgroundColor: theme.primary }]}
                   onPress={() => setIsDetailOpen(false)}
                 >
-                  <Text style={styles.closeBtnText}>Đóng</Text>
+                  <Text style={styles.closeBtnText}>{t("common.close")}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -677,7 +671,7 @@ export default function LeaveScreen() {
           >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.textMain }]}>
-                Tạo đơn mới
+                {t("leave.createTitle")}
               </Text>
               <TouchableOpacity onPress={() => setIsCreateOpen(false)}>
                 <Ionicons name="close" size={24} color={theme.textMain} />
@@ -692,44 +686,37 @@ export default function LeaveScreen() {
                 <Text
                   style={[styles.inputLabel, { color: theme.textSecondary }]}
                 >
-                  Loại đơn từ
+                  {t("leave.formType")}
                 </Text>
                 <View style={styles.pickerRow}>
-                  {(["ANNUAL", "SICK", "UNPAID", "OTHER"] as const).map(
-                    (type) => {
-                      const active = formType === type;
-                      const labels = {
-                        ANNUAL: "Nghỉ phép",
-                        SICK: "Nghỉ ốm",
-                        UNPAID: "Không lương",
-                        OTHER: "Khác",
-                      };
-                      return (
-                        <TouchableOpacity
-                          key={type}
+                  {formOptions.map((option) => {
+                    const active = isOptionActive(option);
+                    const key = option.id || option.code || option.dayOffType;
+                    return (
+                      <TouchableOpacity
+                        key={key}
+                        style={[
+                          styles.pickerChip,
+                          active && {
+                            backgroundColor: theme.primary,
+                            borderColor: theme.primary,
+                          },
+                        ]}
+                        onPress={() => selectFormOption(option)}
+                      >
+                        <Text
                           style={[
-                            styles.pickerChip,
-                            active && {
-                              backgroundColor: theme.primary,
-                              borderColor: theme.primary,
-                            },
+                            styles.pickerChipText,
+                            active
+                              ? { color: "#FFFFFF" }
+                              : { color: theme.textMain },
                           ]}
-                          onPress={() => setFormType(type)}
                         >
-                          <Text
-                            style={[
-                              styles.pickerChipText,
-                              active
-                                ? { color: "#FFFFFF" }
-                                : { color: theme.textMain },
-                            ]}
-                          >
-                            {labels[type]}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    },
-                  )}
+                          {typeLabel(option)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
 
@@ -737,21 +724,19 @@ export default function LeaveScreen() {
                 <Text
                   style={[styles.inputLabel, { color: theme.textSecondary }]}
                 >
-                  Từ ngày
+                  {t("leave.fromDate")}
                 </Text>
-                <TextInput
-                  style={[
-                    styles.textInput,
-                    {
-                      color: theme.textMain,
-                      borderColor: theme.border,
-                      backgroundColor: theme.background,
-                    },
-                  ]}
-                  placeholder="DD/MM/YYYY"
-                  placeholderTextColor={theme.textSecondary}
+                <DateInput
                   value={formStartDate}
-                  onChangeText={setFormStartDate}
+                  label={t("leave.fromDate")}
+                  placeholder={t("leave.datePlaceholder")}
+                  presentation="inline"
+                  onChange={(iso) => {
+                    setFormStartDate(iso);
+                    if (formEndDate && formEndDate < iso) {
+                      setFormEndDate(iso);
+                    }
+                  }}
                 />
               </View>
 
@@ -759,21 +744,15 @@ export default function LeaveScreen() {
                 <Text
                   style={[styles.inputLabel, { color: theme.textSecondary }]}
                 >
-                  Đến ngày
+                  {t("leave.toDate")}
                 </Text>
-                <TextInput
-                  style={[
-                    styles.textInput,
-                    {
-                      color: theme.textMain,
-                      borderColor: theme.border,
-                      backgroundColor: theme.background,
-                    },
-                  ]}
-                  placeholder="DD/MM/YYYY"
-                  placeholderTextColor={theme.textSecondary}
+                <DateInput
                   value={formEndDate}
-                  onChangeText={setFormEndDate}
+                  label={t("leave.toDate")}
+                  placeholder={t("leave.datePlaceholder")}
+                  presentation="inline"
+                  minDate={formStartDate || undefined}
+                  onChange={setFormEndDate}
                 />
               </View>
 
@@ -781,7 +760,7 @@ export default function LeaveScreen() {
                 <Text
                   style={[styles.inputLabel, { color: theme.textSecondary }]}
                 >
-                  Lý do nghỉ
+                  {t("leave.reasonLabel")}
                 </Text>
                 <TextInput
                   style={[
@@ -793,7 +772,7 @@ export default function LeaveScreen() {
                       backgroundColor: theme.background,
                     },
                   ]}
-                  placeholder="Nhập lý do cụ thể..."
+                  placeholder={t("leave.reasonPlaceholder")}
                   placeholderTextColor={theme.textSecondary}
                   multiline={true}
                   numberOfLines={3}
@@ -812,7 +791,7 @@ export default function LeaveScreen() {
                 <Text
                   style={[styles.modalCancelText, { color: theme.textMain }]}
                 >
-                  Hủy
+                  {t("common.cancel")}
                 </Text>
               </TouchableOpacity>
 
@@ -827,7 +806,9 @@ export default function LeaveScreen() {
                 {submitting ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalSubmitText}>Gửi đơn</Text>
+                  <Text style={styles.modalSubmitText}>
+                    {t("leave.submit")}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>

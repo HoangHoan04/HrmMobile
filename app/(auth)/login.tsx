@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button/Button";
+import { showAlert } from "@/components/ui/confirm";
 import { Checkbox } from "@/components/ui/input/Checkbox";
 import { Input } from "@/components/ui/input/Input";
 import { InputPassword } from "@/components/ui/input/InputPassword";
@@ -11,6 +12,7 @@ import {
 } from "@/components/ui/Modal";
 import { Colors } from "@/constants/common/Colors";
 import { ROUTES } from "@/constants/common/routes";
+import { showToastError } from "@/helper/ToastEventEmitter";
 import { useLogin } from "@/hooks";
 import { useLanguageStore } from "@/store/languageStore";
 import { keyboardAvoidingBehavior } from "@/utils/helpers";
@@ -18,7 +20,6 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   Dimensions,
   KeyboardAvoidingView,
   Linking,
@@ -76,20 +77,21 @@ export default function LoginScreen() {
 
   const handleCall = (phone: string) => {
     Linking.openURL(`tel:${phone.replace(/\s+/g, "")}`).catch(() => {
-      Alert.alert(t("common.error"), "Could not open dialer");
+      showToastError(t("login.openDialerFailed"));
     });
   };
 
   const handleEmail = (email: string) => {
     Linking.openURL(`mailto:${email}`).catch(() => {
-      Alert.alert(t("common.error"), "Could not open email client");
+      showToastError(t("login.openEmailFailed"));
     });
   };
 
   const handleSocialLogin = (platform: string) => {
-    Alert.alert(
-      "Social Login",
-      `${platform} login is not supported. Please contact HR for credentials.`,
+    showAlert(
+      t("login.socialTitle"),
+      t("login.socialUnsupported", { platform }),
+      { variant: "info" },
     );
   };
 

@@ -9,7 +9,7 @@ interface LanguageState {
   dynamicTranslations: any;
   setLanguage: (language: Language) => void;
   initLanguage: () => Promise<void>;
-  t: (path: string) => string;
+  t: (path: string, params?: Record<string, string | number>) => string;
 }
 
 const deepMerge = (target: any, source: any) => {
@@ -53,7 +53,7 @@ export const useLanguageStore = create<LanguageState>((set, get) => ({
     }
   },
 
-  t: (path: string) => {
+  t: (path: string, params?: Record<string, string | number>) => {
     const { language, dynamicTranslations } = get();
     const keys = path.split(".");
 
@@ -69,6 +69,16 @@ export const useLanguageStore = create<LanguageState>((set, get) => ({
         return path;
       }
     }
-    return typeof current === "string" ? current : path;
+
+    let result = typeof current === "string" ? current : path;
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        result = result.replace(
+          new RegExp(`\\{\\{${key}\\}\\}`, "g"),
+          String(value),
+        );
+      });
+    }
+    return result;
   },
 }));

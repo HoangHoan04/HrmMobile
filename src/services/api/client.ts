@@ -1,7 +1,9 @@
+import { showToastError } from "@/helper/ToastEventEmitter";
+import { t } from "@/features/common";
+import { isNetworkError } from "@/features/common/apiError";
+import tokenCache from "@/utils/token";
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
 import * as Updates from "expo-updates";
-import tokenCache from "@/utils/token";
-import { showToastError } from "@/helper/ToastEventEmitter";
 import { endpoints } from "./endpoints";
 
 let isRefreshing = false;
@@ -84,13 +86,13 @@ const initApi = (url?: string, headers = {}) => {
       const status =
         error.response?.status || (error.response?.data as any)?.httpCode;
       const hasAuthHeader =
-        originalRequest.headers &&
+        originalRequest?.headers &&
         (originalRequest.headers.Authorization ||
           originalRequest.headers.authorization);
 
       if (
         (status === 401 || status === 403) &&
-        !originalRequest._retry &&
+        !originalRequest?._retry &&
         hasAuthHeader
       ) {
         if (isRefreshing) {
@@ -116,14 +118,24 @@ const initApi = (url?: string, headers = {}) => {
         } catch (err) {
           processQueue(err, null);
           await tokenCache.clear();
-          showToastError("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại!");
+          if (isNetworkError(err)) {
+            showToastError(t("common.serverUnavailable"));
+          } else {
+            showToastError("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại!");
+          }
           return Promise.reject(err);
         } finally {
           isRefreshing = false;
         }
       }
 
-      if (originalRequest.skipErrorToast) {
+      // API down / unreachable — always toast (even when skipErrorToast)
+      if (isNetworkError(error)) {
+        showToastError(t("common.serverUnavailable"));
+        return Promise.reject(error);
+      }
+
+      if (originalRequest?.skipErrorToast) {
         return Promise.reject(error);
       }
 

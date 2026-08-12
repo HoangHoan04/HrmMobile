@@ -18,6 +18,7 @@ export const endpoints = {
     create: "/mobile/leave/create",
     myList: "/mobile/leave/my-list",
     cancel: "/mobile/leave/cancel",
+    balance: "/mobile/leave/balance",
   },
   upload: {
     single: "/upload-file/upload-single",

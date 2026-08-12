@@ -1,6 +1,14 @@
+export type AttendanceStatusCode =
+  | "ON_TIME"
+  | "LATE"
+  | "EARLY"
+  | "LEAVE"
+  | "ABSENT"
+  | "INCOMPLETE";
+
 export interface MobileTodayDto {
   workDate: string;
-  status: string;
+  status: AttendanceStatusCode;
   checkInAt?: string | null;
   checkOutAt?: string | null;
   lateMinutes?: number;
@@ -18,7 +26,7 @@ export interface MobileTodayDto {
 
 export interface MobileMonthDayDto {
   workDate: string;
-  status: string;
+  status: AttendanceStatusCode;
   checkInAt?: string | null;
   checkOutAt?: string | null;
   workedMinutes?: number;
@@ -39,4 +47,7 @@ export interface MobileMonthDto {
   absentDays: number;
   incompleteDays: number;
   totalWorkedMinutes: number;
+  expectedWorkingDays?: number;
+  dailyExpectedMinutes?: number;
+  expectedWorkedMinutes?: number;
 }

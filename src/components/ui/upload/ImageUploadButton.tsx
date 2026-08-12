@@ -1,5 +1,7 @@
+import { showAlert, showConfirm } from "@/components/ui/confirm";
 import { Colors } from "@/constants/common/Colors";
 import { useUpload } from "@/hooks/useUpload";
+import { useLanguageStore } from "@/store/languageStore";
 import { UploadFileResult, UploadMode } from "@/types/upload";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
@@ -7,7 +9,6 @@ import * as ImagePicker from "expo-image-picker";
 import React, { useCallback } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   StyleSheet,
   Text,
@@ -40,12 +41,17 @@ export function ImageUploadButton({
 }: ImageUploadButtonProps) {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
+  const { t } = useLanguageStore();
   const { upload, loading } = useUpload();
 
   const pickImage = useCallback(async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Quyền truy cập", "Vui lòng cho phép truy cập thư viện ảnh.");
+      showAlert(
+        t("upload.permissionTitle"),
+        t("upload.permissionBody"),
+        { variant: "warning" },
+      );
       return;
     }
 
@@ -76,7 +82,7 @@ export function ImageUploadButton({
 
     onChange?.(uploadResult.fileUrl);
     onUploaded?.(uploadResult);
-  }, [mode, onChange, onUploaded, upload]);
+  }, [mode, onChange, onUploaded, t, upload]);
 
   const pickDocument = useCallback(async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -114,16 +120,29 @@ export function ImageUploadButton({
     }
 
     if (pickerType === "both") {
-      Alert.alert("Tải file lên", "Chọn loại file", [
-        { text: "Ảnh", onPress: () => void pickImage() },
-        { text: "Tài liệu", onPress: () => void pickDocument() },
-        { text: "Hủy", style: "cancel" },
-      ]);
+      showConfirm({
+        title: t("upload.pickTitle"),
+        message: t("upload.pickBody"),
+        variant: "confirm",
+        buttons: [
+          {
+            text: t("upload.pickImage"),
+            style: "default",
+            onPress: () => void pickImage(),
+          },
+          {
+            text: t("upload.pickDocument"),
+            style: "default",
+            onPress: () => void pickDocument(),
+          },
+          { text: t("common.cancel"), style: "cancel" },
+        ],
+      });
       return;
     }
 
     void pickImage();
-  }, [loading, pickDocument, pickImage, pickerType]);
+  }, [loading, pickDocument, pickImage, pickerType, t]);
 
   return (
     <View style={[styles.wrap, style]}>
