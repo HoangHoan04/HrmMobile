@@ -88,12 +88,15 @@ export function useAttendance() {
     },
   });
 
+  // Wave B4: ưu tiên today (check-in); month load sau khi today xong
   const {
     data: month = null,
     isLoading: loadingMonth,
     error: monthError,
   } = useQuery<MobileMonthDto | null>({
     queryKey: ["attendance", "month", selectedYear, selectedMonth],
+    enabled: !loadingToday,
+    staleTime: 60_000,
     queryFn: async () => {
       try {
         const { data } = await rootApi.post(

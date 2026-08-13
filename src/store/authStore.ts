@@ -32,9 +32,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
   });
 
   setTokenRefreshedHandler((accessToken) => {
+    // Wave B5: đồng bộ user (roles/permissions) sau refresh
+    const user = tokenCache.getUser();
     set({
       accessToken,
       isAuthenticated: true,
+      ...(user ? { user } : {}),
     });
   });
 

@@ -63,7 +63,17 @@ const initApi = (url?: string, headers = {}) => {
 
     const nextRfToken = data.refreshToken || data.RefreshToken || rfToken;
     const currentUser = tokenCache.getUser() || {};
-    await tokenCache.setAuthData(accessToken, nextRfToken, currentUser);
+    // Wave B5: sync roles/permissions từ refresh body
+    const nextUser = {
+      ...currentUser,
+      roles: Array.isArray(data?.roles) ? data.roles : currentUser.roles,
+      permissions: Array.isArray(data?.permissions)
+        ? data.permissions
+        : currentUser.permissions,
+      type: data?.type ?? currentUser.type,
+      username: data?.username ?? currentUser.username,
+    };
+    await tokenCache.setAuthData(accessToken, nextRfToken, nextUser);
     notifyTokenRefreshed(accessToken);
 
     return accessToken;

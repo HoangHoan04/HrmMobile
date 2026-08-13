@@ -74,10 +74,16 @@ export default function DashboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchToday().catch(() => undefined);
-      refetchProfile().catch(() => undefined);
-      const now = new Date();
-      fetchMonth(now.getFullYear(), now.getMonth() + 1).catch(() => undefined);
+      // Wave B4: today trước (nút vào/ra ca); month + profile lazy
+      fetchToday()
+        .catch(() => undefined)
+        .finally(() => {
+          const now = new Date();
+          fetchMonth(now.getFullYear(), now.getMonth() + 1).catch(() => undefined);
+          setTimeout(() => {
+            refetchProfile().catch(() => undefined);
+          }, 150);
+        });
       ensureLocationPermission().catch(() => undefined);
 
       const pulse = Animated.loop(
