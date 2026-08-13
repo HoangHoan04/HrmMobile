@@ -79,7 +79,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
             }
 
             const status = error?.response?.status;
-            if (status === 401 || status === 403) {
+            if (status === 401 || status === 403 || status === 404) {
               await tokenCache.clear();
               set({
                 isAuthenticated: false,
@@ -156,7 +156,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         );
         set({ onboardingCompleted: completed });
       } catch {
-        // Ignore
+        //! Ignore
       }
     },
   };

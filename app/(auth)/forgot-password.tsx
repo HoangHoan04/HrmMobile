@@ -197,7 +197,7 @@ export default function ForgotPasswordScreen() {
                   letterSpacing: 1.5,
                 }}
               >
-                HRDashboard
+                SMARTHRM
               </Text>
               <Text
                 style={{
@@ -207,7 +207,7 @@ export default function ForgotPasswordScreen() {
                   marginTop: 2,
                 }}
               >
-                Smart HR Management
+                Hệ thống quản lý nhân sự
               </Text>
             </View>
           </View>

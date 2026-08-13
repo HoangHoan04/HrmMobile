@@ -169,4 +169,49 @@ export const enumData = {
       labelKey: "checkin.complaint.typeOther",
     },
   },
+
+  LEAVE_SESSION: {
+    FULL: { code: "FULL", labelKey: "leave.sessionFull", value: "FULL" },
+    AM: { code: "AM", labelKey: "leave.sessionAm", value: "AM" },
+    PM: { code: "PM", labelKey: "leave.sessionPm", value: "PM" },
+  },
+
+  SALARY_STATUS: {
+    DRAFT: { code: "DRAFT", value: "DRAFT" },
+    PROCESSING: { code: "PROCESSING", value: "PROCESSING" },
+    APPROVED: { code: "APPROVED", value: "APPROVED" },
+    PAID: { code: "PAID", value: "PAID" },
+    CANCELLED: { code: "CANCELLED", value: "CANCELLED" },
+  },
+
+  SALARY_ITEM_TYPE: {
+    INCOME: { code: "INCOME", value: "INCOME" },
+    DEDUCTION: { code: "DEDUCTION", value: "DEDUCTION" },
+  },
+
+  SLIP_KIND: {
+    DEDUCTION: { code: "DEDUCTION", value: "DEDUCTION" },
+    ADDITION: { code: "ADDITION", value: "ADDITION" },
+  },
+
+  SLIP_STATUS: {
+    DRAFT: { code: "DRAFT", value: "DRAFT" },
+    PENDING: { code: "PENDING", value: "PENDING" },
+    APPROVED: { code: "APPROVED", value: "APPROVED" },
+    APPLIED: { code: "APPLIED", value: "APPLIED" },
+    REJECTED: { code: "REJECTED", value: "REJECTED" },
+    CANCELLED: { code: "CANCELLED", value: "CANCELLED" },
+  },
+
+  USER_TYPE: {
+    ADMIN: { code: "ADMIN", value: "ADMIN" },
+    HR: { code: "HR", value: "HR" },
+    MANAGER: { code: "MANAGER", value: "MANAGER" },
+    EMPLOYEE: { code: "EMPLOYEE", value: "EMPLOYEE" },
+  },
+
+  LEAVE_CALENDAR_EVENT_TYPE: {
+    LEAVE: { code: "LEAVE", value: "LEAVE" },
+    HOLIDAY: { code: "HOLIDAY", value: "HOLIDAY" },
+  },
 };

@@ -1,3 +1,4 @@
+import { enumData } from "@/constants/enums/enumData";
 import { PermissionCodes } from "@/constants/permissions";
 import { useAuthStore } from "@/store/authStore";
 import { useMemo } from "react";
@@ -22,8 +23,10 @@ export function usePermissions() {
   const userType = (user?.type || "").toString().toUpperCase();
 
   const isAdmin =
-    userType === "ADMIN" ||
-    roles.some((r) => (r || "").toUpperCase() === "ADMIN");
+    userType === enumData.USER_TYPE.ADMIN.value ||
+    roles.some(
+      (r) => (r || "").toUpperCase() === enumData.USER_TYPE.ADMIN.value,
+    );
 
   const has = (code: string): boolean => {
     if (!code) return true;
@@ -44,8 +47,25 @@ export function usePermissions() {
     isAdmin,
     has,
     hasAny,
-    canApproveLeave: has(PermissionCodes.LeaveApprove) || isAdmin,
-    canCreateComplaint: has(PermissionCodes.AttendanceComplaintCreate) || isAdmin,
-    canAccessMobile: has(PermissionCodes.MobileAccess) || isAdmin || permissions.length === 0,
+    canApproveLeave:
+      has(PermissionCodes.LeaveApprove) ||
+      has(PermissionCodes.LeaveApproveLegacy) ||
+      isAdmin,
+    canCreateComplaint:
+      has(PermissionCodes.AttendanceComplaintCreate) || isAdmin,
+    canAccessMobile:
+      has(PermissionCodes.MobileAccess) ||
+      isAdmin ||
+      permissions.length === 0,
+    canViewTeamAttendance:
+      has(PermissionCodes.LeaveApprove) ||
+      has(PermissionCodes.LeaveApproveLegacy) ||
+      has(PermissionCodes.TimekeepingView) ||
+      isAdmin,
+    canViewWorkflowInbox: has(PermissionCodes.WorkflowInbox) || isAdmin,
+    canViewPerformance: has(PermissionCodes.PerformanceView) || isAdmin,
+    canViewTraining: has(PermissionCodes.TrainingView) || isAdmin,
+    canViewInterviews:
+      has(PermissionCodes.RecruitmentInterviewView) || isAdmin,
   };
 }

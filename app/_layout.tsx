@@ -79,7 +79,7 @@ export default function RootLayout() {
               marginBottom: 24,
             }}
           >
-            Welcome to HRM
+            SMARTHRM
           </Text>
           <View
             style={{

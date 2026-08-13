@@ -1,3 +1,4 @@
+import { enumData } from "@/constants/enums/enumData";
 import { getApiErrorMessage, parseInputDateToIso, t } from "@/features/common";
 import { showToastError, showToastSuccess } from "@/helper/ToastEventEmitter";
 import { endpoints } from "@/services/api/endpoints";
@@ -19,7 +20,9 @@ function mapConfig(c: any): MobileLeaveConfigDto {
     id: String(c?.id ?? ""),
     code: String(c?.code ?? ""),
     name: String(c?.name ?? ""),
-    dayOffType: String(c?.dayOffType ?? "OTHER").toUpperCase(),
+    dayOffType: String(
+      c?.dayOffType ?? enumData.DAY_OFF_TYPE.OTHER.code,
+    ).toUpperCase(),
     defaultDaysPerYear: Number(c?.defaultDaysPerYear) || 0,
     isPaid: !!c?.isPaid,
     deductBalance: c?.deductBalance !== false,
@@ -33,10 +36,14 @@ function mapConfig(c: any): MobileLeaveConfigDto {
 }
 
 function normalizeSession(value?: string | number | null): LeaveSession {
-  const raw = String(value ?? "FULL").toUpperCase();
-  if (raw === "AM" || raw === "2") return "AM";
-  if (raw === "PM" || raw === "3") return "PM";
-  return "FULL";
+  const raw = String(value ?? enumData.LEAVE_SESSION.FULL.value).toUpperCase();
+  if (raw === enumData.LEAVE_SESSION.AM.value || raw === "2") {
+    return enumData.LEAVE_SESSION.AM.value as LeaveSession;
+  }
+  if (raw === enumData.LEAVE_SESSION.PM.value || raw === "3") {
+    return enumData.LEAVE_SESSION.PM.value as LeaveSession;
+  }
+  return enumData.LEAVE_SESSION.FULL.value as LeaveSession;
 }
 
 function mapLeaveDto(raw: any): RegisterDayOffDto {
@@ -58,7 +65,9 @@ function mapLeaveDto(raw: any): RegisterDayOffDto {
     totalDays: Number(raw?.totalDays) || 0,
     reason: raw?.reason ?? null,
     attachmentUrl: raw?.attachmentUrl ?? null,
-    status: String(raw?.status ?? "PENDING").toUpperCase(),
+    status: String(
+      raw?.status ?? enumData.DAY_OFF_STATUS.PENDING.code,
+    ).toUpperCase(),
     requestedApproverId:
       raw?.requestedApproverId != null ? String(raw.requestedApproverId) : null,
     requestedApproverName: raw?.requestedApproverName ?? null,
@@ -170,7 +179,11 @@ export function useLeave() {
       }
 
       const session = normalizeSession(payload.session);
-      if ((session === "AM" || session === "PM") && fromDate !== toDate) {
+      if (
+        (session === enumData.LEAVE_SESSION.AM.value ||
+          session === enumData.LEAVE_SESSION.PM.value) &&
+        fromDate !== toDate
+      ) {
         throw new Error(t("leave.sessionSingleDay"));
       }
 
@@ -268,7 +281,7 @@ export function useLeave() {
     async (
       fromDateInput: string,
       toDateInput: string,
-      session: LeaveSession = "FULL",
+      session: LeaveSession = enumData.LEAVE_SESSION.FULL.value as LeaveSession,
     ): Promise<PreviewLeaveDaysDto | null> => {
       const fromDate = parseInputDateToIso(fromDateInput);
       const toDate = parseInputDateToIso(toDateInput);
@@ -278,7 +291,10 @@ export function useLeave() {
 
       const normalized = normalizeSession(session);
       const effectiveTo =
-        normalized === "AM" || normalized === "PM" ? fromDate : toDate;
+        normalized === enumData.LEAVE_SESSION.AM.value ||
+        normalized === enumData.LEAVE_SESSION.PM.value
+          ? fromDate
+          : toDate;
 
       try {
         const { data } = await rootApi.post(

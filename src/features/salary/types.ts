@@ -1,3 +1,5 @@
+import { enumData } from "@/constants/enums/enumData";
+
 export interface SalaryLineItemDto {
   id?: string;
   itemType: string;
@@ -79,8 +81,13 @@ const ITEM_CODE_I18N: Record<string, string> = {
 
 export function mapApiStatusToUi(status?: string): MobileSalaryStatus {
   const s = (status || "").toUpperCase();
-  if (s === "PAID") return "paid";
-  if (s === "PROCESSING" || s === "APPROVED") return "processing";
+  if (s === enumData.SALARY_STATUS.PAID.value) return "paid";
+  if (
+    s === enumData.SALARY_STATUS.PROCESSING.value ||
+    s === enumData.SALARY_STATUS.APPROVED.value
+  ) {
+    return "processing";
+  }
   return "pending";
 }
 
@@ -103,12 +110,16 @@ export function mapSalaryDtoToPeriod(dto: SalaryDto): SalaryPeriodView {
   const income = (
     dto.incomeItems?.length
       ? dto.incomeItems
-      : dto.lineItems?.filter((x) => x.itemType === "INCOME") || []
+      : dto.lineItems?.filter(
+          (x) => x.itemType === enumData.SALARY_ITEM_TYPE.INCOME.value,
+        ) || []
   ).map((x) => ({ label: mapLineLabel(x), amount: Number(x.amount) || 0 }));
   const deduction = (
     dto.deductionItems?.length
       ? dto.deductionItems
-      : dto.lineItems?.filter((x) => x.itemType === "DEDUCTION") || []
+      : dto.lineItems?.filter(
+          (x) => x.itemType === enumData.SALARY_ITEM_TYPE.DEDUCTION.value,
+        ) || []
   ).map((x) => ({
     label: mapLineLabel(x),
     amount: -Math.abs(Number(x.amount) || 0),

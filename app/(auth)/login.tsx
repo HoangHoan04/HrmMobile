@@ -1,9 +1,9 @@
+import { LanguageChange } from "@/components/common/LanguageChange";
 import { Button } from "@/components/ui/button/Button";
 import { showAlert } from "@/components/ui/confirm";
 import { Checkbox } from "@/components/ui/input/Checkbox";
 import { Input } from "@/components/ui/input/Input";
 import { InputPassword } from "@/components/ui/input/InputPassword";
-import { LanguageChange } from "@/components/common/LanguageChange";
 import {
   Modal,
   ModalBody,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/Modal";
 import { Colors } from "@/constants/common/Colors";
 import { ROUTES } from "@/constants/common/routes";
+import { tryLocalAuth } from "@/features/more/biometric";
 import { showToastError } from "@/helper/ToastEventEmitter";
 import { useLogin } from "@/hooks";
 import { useLanguageStore } from "@/store/languageStore";
@@ -43,6 +44,8 @@ export default function LoginScreen() {
     rememberMe,
     setRememberMe,
     handleLogin,
+    biometricAvailable,
+    loginWithSavedCredentials,
   } = useLogin();
 
   const router = useRouter();
@@ -51,6 +54,7 @@ export default function LoginScreen() {
   const { t } = useLanguageStore();
 
   const [isHrModalOpen, setIsHrModalOpen] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
 
   const hrContacts = [
     {
@@ -93,6 +97,24 @@ export default function LoginScreen() {
       t("login.socialUnsupported", { platform }),
       { variant: "info" },
     );
+  };
+
+  const handleBiometricUnlock = async () => {
+    setBiometricLoading(true);
+    try {
+      const result = await tryLocalAuth(t("phaseM.security.prompt"));
+      if (!result.available) {
+        await loginWithSavedCredentials();
+        return;
+      }
+      if (!result.ok) {
+        showToastError(t("phaseM.security.unlockFailed"));
+        return;
+      }
+      await loginWithSavedCredentials();
+    } finally {
+      setBiometricLoading(false);
+    }
   };
 
   return (
@@ -185,7 +207,7 @@ export default function LoginScreen() {
                   letterSpacing: 1,
                 }}
               >
-                SmartHRM
+                SMARTHRM
               </Text>
               <Text
                 style={{
@@ -357,6 +379,41 @@ export default function LoginScreen() {
                   }}
                 />
               </View>
+
+              {biometricAvailable ? (
+                <TouchableOpacity
+                  style={{
+                    marginTop: 12,
+                    height: 48,
+                    borderRadius: 14,
+                    borderWidth: 1.5,
+                    borderColor: theme.primary,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    opacity: biometricLoading || loading ? 0.7 : 1,
+                  }}
+                  disabled={biometricLoading || loading}
+                  onPress={handleBiometricUnlock}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="finger-print"
+                    size={20}
+                    color={theme.primary}
+                  />
+                  <Text
+                    style={{
+                      color: theme.primary,
+                      fontWeight: "700",
+                      fontSize: 14,
+                    }}
+                  >
+                    {t("login.biometricUnlock")}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
 
               <View
                 style={{

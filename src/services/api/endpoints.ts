@@ -13,6 +13,9 @@ export const endpoints = {
     checkIn: "/mobile/timekeeping/check-in",
     checkOut: "/mobile/timekeeping/check-out",
     month: "/mobile/timekeeping/month",
+    teamMonth: "/mobile/timekeeping/team-month",
+    myOt: "/mobile/timekeeping/my-ot",
+    createOt: "/mobile/timekeeping/create-ot",
   },
   attendanceComplaint: {
     create: "/mobile/attendance-complaint/create",
@@ -28,10 +31,46 @@ export const endpoints = {
     pendingApprovals: "/mobile/leave/pending-approvals",
     approve: "/mobile/leave/approve",
     reject: "/mobile/leave/reject",
+    teamCalendar: "/mobile/leave/team-calendar",
   },
   salary: {
     myList: "/mobile/salary/my-list",
     detail: "/mobile/salary/detail",
+    payslipHtml: "/mobile/salary/payslip-html",
+  },
+  profile: {
+    contracts: "/mobile/profile/contracts",
+    files: "/mobile/profile/files",
+    directory: "/mobile/profile/directory",
+    orgChart: "/mobile/profile/org-chart",
+  },
+  workflow: {
+    inbox: "/mobile/workflow/inbox",
+    advance: "/mobile/workflow/advance",
+    reject: "/mobile/workflow/reject",
+  },
+  performance: {
+    myGoals: "/mobile/performance/my-goals",
+    myResults: "/mobile/performance/my-results",
+    my360: "/mobile/performance/my-360",
+    upsert360: "/mobile/performance/upsert-360",
+  },
+  training: {
+    myCourses: "/mobile/training/my-courses",
+    myEnrollments: "/mobile/training/my-enrollments",
+    myResults: "/mobile/training/my-results",
+    quizzes: "/mobile/training/quizzes",
+    submitQuiz: "/mobile/training/submit-quiz",
+  },
+  recruitment: {
+    myInterviews: "/mobile/recruitment/my-interviews",
+  },
+  announcements: {
+    myList: "/mobile/announcements/my-list",
+    create: "/mobile/announcements/create",
+  },
+  dashboard: {
+    managerSummary: "/mobile/dashboard/manager-summary",
   },
   upload: {
     single: "/upload-file/upload-single",

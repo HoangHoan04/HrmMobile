@@ -2,6 +2,7 @@ import { DrawerMenuButton } from "@/components/layout/drawer";
 import { Calendar, type CalendarDayMeta } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input/Input";
 import { Textarea } from "@/components/ui/input/Textarea";
+import { ImageUploadButton } from "@/components/ui/upload/ImageUploadButton";
 import { Colors } from "@/constants/common/Colors";
 import {
   getAttendanceStatusBg,
@@ -78,6 +79,7 @@ export default function CheckInScreen() {
   const [requestedCheckIn, setRequestedCheckIn] = useState("");
   const [requestedCheckOut, setRequestedCheckOut] = useState("");
   const [complaintReason, setComplaintReason] = useState("");
+  const [attachmentUrl, setAttachmentUrl] = useState("");
 
   useFocusEffect(
     useCallback(() => {
@@ -216,6 +218,7 @@ export default function CheckInScreen() {
     setRequestedCheckIn(clockOrEmpty(dayData.checkIn));
     setRequestedCheckOut(clockOrEmpty(dayData.checkOut));
     setComplaintReason("");
+    setAttachmentUrl("");
   };
 
   const closeBottomSheet = () => {
@@ -243,6 +246,7 @@ export default function CheckInScreen() {
     setRequestedCheckIn(clockOrEmpty(selectedDay.checkIn));
     setRequestedCheckOut(clockOrEmpty(selectedDay.checkOut));
     setComplaintReason("");
+    setAttachmentUrl("");
     setComplaintOpen(true);
   };
 
@@ -288,6 +292,7 @@ export default function CheckInScreen() {
         requestedCheckInTime: checkInSpan,
         requestedCheckOutTime: checkOutSpan,
         reason,
+        attachmentUrl: attachmentUrl.trim() || null,
       });
       closeBottomSheet();
     } catch {
@@ -1149,6 +1154,25 @@ export default function CheckInScreen() {
                           value={complaintReason}
                           onChangeText={setComplaintReason}
                           placeholder={t("checkin.complaint.reasonPlaceholder")}
+                        />
+                      </View>
+
+                      <View style={styles.complaintField}>
+                        <Text
+                          style={[
+                            styles.sheetDetailLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {t("checkin.complaint.evidence")}
+                        </Text>
+                        <ImageUploadButton
+                          value={attachmentUrl || null}
+                          mode="image"
+                          pickerType="image"
+                          size={72}
+                          onChange={setAttachmentUrl}
+                          fallbackText={t("checkin.complaint.uploadEvidence")}
                         />
                       </View>
 

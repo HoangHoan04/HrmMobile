@@ -1,15 +1,18 @@
 import { DrawerMenuButton } from "@/components/layout/drawer";
 import { toMonthStart } from "@/components/ui/calendar";
 import { Colors } from "@/constants/common/Colors";
+import { useSalaryDetail } from "@/features/more/hooks/useSalaryDetail";
 import { useSalary } from "@/features/salary/hooks/useSalary";
 import type {
   MobileSalaryStatus,
   SalaryPeriodView,
 } from "@/features/salary/types";
+import { showToastError } from "@/helper/ToastEventEmitter";
 import { useLanguageStore } from "@/store/languageStore";
 import { useThemeStore } from "@/store/themeStore";
 
 import { Ionicons } from "@expo/vector-icons";
+import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -53,6 +56,9 @@ export default function SalaryScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useLanguageStore();
   const { periods, loading, refreshing, refetch } = useSalary();
+  const { detail, loading: detailLoading, fetchDetail, fetchPayslipHtml } =
+    useSalaryDetail();
+  const [openingPayslip, setOpeningPayslip] = useState(false);
 
   const [currentMonth, setCurrentMonth] = useState(() =>
     toMonthStart(new Date()),
@@ -70,10 +76,17 @@ export default function SalaryScreen() {
     setDidInitMonth(true);
   }, [periods, didInitMonth]);
 
-  const currentPeriod = useMemo(
-    () => findPeriod(periods, currentMonth),
-    [periods, currentMonth],
-  );
+  const currentPeriod = useMemo(() => {
+    const fromList = findPeriod(periods, currentMonth);
+    if (detail && fromList && detail.id === fromList.id) return detail;
+    return fromList;
+  }, [periods, currentMonth, detail]);
+
+  useEffect(() => {
+    const fromList = findPeriod(periods, currentMonth);
+    if (!fromList?.id) return;
+    void fetchDetail(fromList.id).catch(() => undefined);
+  }, [periods, currentMonth, fetchDetail]);
 
   const prevCalendarMonth = useMemo(
     () => new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1),
@@ -167,6 +180,28 @@ export default function SalaryScreen() {
       await Linking.openURL(currentPeriod.payslipPdfUrl);
     } catch {
       //! ignore
+    }
+  };
+
+  const openPayslipHtml = async () => {
+    if (!currentPeriod?.id) return;
+    setOpeningPayslip(true);
+    try {
+      const result = await fetchPayslipHtml(currentPeriod.id);
+      if (result.url) {
+        await Linking.openURL(result.url);
+        return;
+      }
+      if (result.html) {
+        const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(result.html)}`;
+        await WebBrowser.openBrowserAsync(dataUrl);
+        return;
+      }
+      showToastError(t("salary.loadFailed"));
+    } catch {
+      showToastError(t("salary.loadFailed"));
+    } finally {
+      setOpeningPayslip(false);
     }
   };
 
@@ -549,6 +584,28 @@ export default function SalaryScreen() {
                 </Text>
               </TouchableOpacity>
             )}
+
+            <TouchableOpacity
+              style={[styles.pdfBtn, { borderColor: theme.primary }]}
+              activeOpacity={0.7}
+              onPress={openPayslipHtml}
+              disabled={openingPayslip || detailLoading}
+            >
+              {openingPayslip ? (
+                <ActivityIndicator color={theme.primary} />
+              ) : (
+                <>
+                  <Ionicons
+                    name="globe-outline"
+                    size={18}
+                    color={theme.primary}
+                  />
+                  <Text style={[styles.pdfBtnText, { color: theme.primary }]}>
+                    {t("salary.viewHtml")}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
           </>
         )}
 

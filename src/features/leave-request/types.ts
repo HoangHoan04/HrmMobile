@@ -1,4 +1,9 @@
-export type LeaveSession = "FULL" | "AM" | "PM";
+import { enumData } from "@/constants/enums/enumData";
+
+export type LeaveSession =
+  | typeof enumData.LEAVE_SESSION.FULL.value
+  | typeof enumData.LEAVE_SESSION.AM.value
+  | typeof enumData.LEAVE_SESSION.PM.value;
 
 export interface RegisterDayOffDto {
   id: string;

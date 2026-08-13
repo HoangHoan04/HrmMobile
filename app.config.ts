@@ -2,8 +2,8 @@ import { ConfigContext, ExpoConfig } from "expo/config";
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: process.env.EXPO_PUBLIC_APP_NAME || "hrm-mobile",
-  slug: "hrm-mobile",
+  name: process.env.EXPO_PUBLIC_APP_NAME || "SMARTHRM",
+  slug: "smarthrm",
   version: "1.0.0",
   orientation: "portrait",
   icon: "./src/assets/images/icon.png",
@@ -28,7 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         NSAllowsArbitraryLoads: true,
       },
       NSLocationWhenInUseUsageDescription:
-        "Cho phép HRM Mobile truy cập vị trí để chấm công GPS tại chi nhánh.",
+        "Cho phép SMARTHRM truy cập vị trí để chấm công GPS tại chi nhánh.",
     },
   },
   android: {
@@ -60,7 +60,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       "expo-location",
       {
         locationWhenInUsePermission:
-          "Cho phép HRM Mobile truy cập vị trí để chấm công GPS tại chi nhánh.",
+          "Cho phép SMARTHRM truy cập vị trí để chấm công GPS tại chi nhánh.",
       },
     ],
     [

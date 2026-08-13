@@ -1,6 +1,10 @@
 import { ROUTES } from "@/constants/common/routes";
 import { normalizeStringList } from "@/constants/permissions";
-import { getApiErrorMessage, isNetworkError } from "@/features/common";
+import { getApiErrorMessage, isNetworkError, t } from "@/features/common";
+import {
+  getBiometricEnabled,
+  setBiometricEnabled,
+} from "@/features/more/biometric";
 import {
   MobileProfile,
   normalizeMobileProfile,
@@ -8,11 +12,12 @@ import {
 import { showToastError, showToastSuccess } from "@/helper/ToastEventEmitter";
 import { rootApi } from "@/services";
 import { endpoints } from "@/services/api/endpoints";
+import secureStorage from "@/services/storage/secureStorage";
 import { useAuthStore } from "@/store/authStore";
 import tokenCache from "@/utils/token";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 function extractToken(data: any): string | null {
   return data?.token || data?.accessToken || data?.Token || null;
@@ -37,26 +42,58 @@ export function useLogin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
 
   const login = useAuthStore((s) => s.login);
   const router = useRouter();
 
+  useEffect(() => {
+    void (async () => {
+      const enabled = await getBiometricEnabled();
+      const saved = await secureStorage.getUserLoginData();
+      setBiometricAvailable(enabled && !!saved);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved) as {
+            username?: string;
+            password?: string;
+          };
+          if (parsed.username) setUsername(parsed.username);
+        } catch {
+          //! ignore
+        }
+      }
+    })();
+  }, []);
+
   const mutation = useMutation({
-    mutationFn: async () => {
-      const loginUsername = username.trim();
+    mutationFn: async (creds?: { username: string; password: string }) => {
+      const loginUsername = (creds?.username ?? username).trim();
+      const loginPassword = creds?.password ?? password;
       const { data } = await rootApi.post(endpoints.auth.login, {
         username: loginUsername,
-        password,
+        password: loginPassword,
       });
-      return data;
+      return { data, loginUsername, loginPassword };
     },
-    onSuccess: async (data) => {
+    onSuccess: async ({ data, loginUsername, loginPassword }) => {
       const token = extractToken(data);
       const refreshToken = data?.refreshToken || data?.RefreshToken;
 
       if (data && token && refreshToken) {
         const user = buildAuthUser(data.user || data);
         await login(token, refreshToken, user);
+
+        await secureStorage.saveUserLoginData({
+          username: loginUsername,
+          password: loginPassword,
+        });
+
+        const already = await getBiometricEnabled();
+        if (!already) {
+          await setBiometricEnabled(true);
+        }
+
         router.replace(ROUTES.tabs.home);
       } else {
         showToastError("Đăng nhập không thành công");
@@ -76,6 +113,30 @@ export function useLogin() {
     },
   });
 
+  const loginWithSavedCredentials = async () => {
+    const saved = await secureStorage.getUserLoginData();
+    if (!saved) {
+      showToastError(t("login.loginFailed"));
+      return;
+    }
+    try {
+      const parsed = JSON.parse(saved) as {
+        username?: string;
+        password?: string;
+      };
+      if (!parsed.username || !parsed.password) {
+        showToastError(t("login.loginFailed"));
+        return;
+      }
+      mutation.mutate({
+        username: parsed.username,
+        password: parsed.password,
+      });
+    } catch {
+      showToastError(t("login.loginFailed"));
+    }
+  };
+
   return {
     username,
     setUsername,
@@ -84,7 +145,9 @@ export function useLogin() {
     loading: mutation.isPending,
     rememberMe,
     setRememberMe,
-    handleLogin: mutation.mutate,
+    handleLogin: () => mutation.mutate(undefined),
+    biometricAvailable,
+    loginWithSavedCredentials,
   };
 }
 
@@ -170,7 +233,7 @@ export function useProfile() {
     enabled: isAuthenticated,
     retry: (failureCount, error: any) => {
       const status = error?.response?.status;
-      if (status === 401 || status === 403) return false;
+      if (status === 401 || status === 403 || status === 404) return false;
       if (isNetworkError(error)) return failureCount < 1;
       return failureCount < 2;
     },
@@ -209,7 +272,7 @@ export function useProfile() {
       } catch (error: any) {
         const status = error?.response?.status;
 
-        if (status === 401 || status === 403) {
+        if (status === 401 || status === 403 || status === 404) {
           if (useAuthStore.getState().isAuthenticated) {
             await logout();
           }
