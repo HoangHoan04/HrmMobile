@@ -65,6 +65,8 @@ export const vi = {
     rememberMe: "Ghi nhớ đăng nhập",
     forgotPassword: "Quên mật khẩu?",
     loginFailed: "Đăng nhập không thành công",
+    noMobileAccess:
+      "Bạn không có quyền truy cập ứng dụng di động. Vui lòng liên hệ quản trị viên.",
     openDialerFailed: "Không thể mở ứng dụng gọi điện",
     openEmailFailed: "Không thể mở ứng dụng email",
     socialTitle: "Đăng nhập mạng xã hội",

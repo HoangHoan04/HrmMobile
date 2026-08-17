@@ -66,6 +66,8 @@ export const en = {
     rememberMe: "Remember me",
     forgotPassword: "Forgot Password?",
     loginFailed: "Login failed",
+    noMobileAccess:
+      "You do not have permission to access the mobile app. Please contact your administrator.",
     openDialerFailed: "Could not open dialer",
     openEmailFailed: "Could not open email client",
     socialTitle: "Social Login",

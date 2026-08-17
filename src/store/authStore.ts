@@ -1,4 +1,6 @@
 import { isNetworkError } from "@/features/common/apiError";
+import { getApiErrorMessage } from "@/features/common";
+import { showToastError } from "@/helper/ToastEventEmitter";
 import { endpoints } from "@/services/api/endpoints";
 import { rootApi } from "@/services/api/rootApi";
 import {
@@ -109,6 +111,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
             const status = error?.response?.status;
             if (status === 401 || status === 403 || status === 404) {
+              if (status === 403) {
+                showToastError(
+                  getApiErrorMessage(error, "login.noMobileAccess"),
+                );
+              }
               await tokenCache.clear();
               set({
                 isAuthenticated: false,

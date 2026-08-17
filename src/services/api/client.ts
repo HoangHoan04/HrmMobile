@@ -25,7 +25,9 @@ function isAuthRefreshUrl(url?: string): boolean {
   if (!url) return false;
   return (
     url.includes(endpoints.auth.refreshToken) ||
-    url.includes(endpoints.auth.login)
+    url.includes(endpoints.auth.login) ||
+    url.includes(endpoints.auth.forgotPassword) ||
+    url.includes(endpoints.auth.resetPassword)
   );
 }
 
@@ -120,7 +122,7 @@ const initApi = (url?: string, headers = {}) => {
           !!tokenCache.getAccessToken());
 
       if (
-        (status === 401 || status === 403) &&
+        status === 401 &&
         !originalRequest?._retry &&
         canTryRefresh
       ) {
@@ -169,7 +171,7 @@ const initApi = (url?: string, headers = {}) => {
       }
 
       if (
-        (status === 401 || status === 403) &&
+        status === 401 &&
         !tokenCache.getRefreshToken() &&
         tokenCache.getAccessToken()
       ) {

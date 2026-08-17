@@ -4,6 +4,7 @@ import { getApiErrorMessage, t } from "@/features/common";
 import { rootApi } from "@/services";
 import { endpoints } from "@/services/api/endpoints";
 import { MobileMonthDto, MobileTodayDto } from "@/features/attendance/types";
+import { useAuthStore } from "@/store/authStore";
 import * as Location from "expo-location";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
@@ -61,6 +62,7 @@ function isLocationSetupError(message: string): boolean {
 
 export function useAttendance() {
   const queryClient = useQueryClient();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [selectedYear, setSelectedYear] = useState(() =>
     new Date().getFullYear(),
   );
@@ -75,6 +77,7 @@ export function useAttendance() {
     refetch: fetchToday,
   } = useQuery<MobileTodayDto | null>({
     queryKey: ["attendance", "today"],
+    enabled: isAuthenticated,
     queryFn: async () => {
       try {
         const { data } = await rootApi.post(endpoints.timekeeping.today, {}, {
@@ -82,7 +85,11 @@ export function useAttendance() {
         } as any);
         return data;
       } catch (err: unknown) {
-        showToastError(getApiErrorMessage(err, "attendance.loadTodayFailed"));
+        const status = (err as { response?: { status?: number } })?.response
+          ?.status;
+        if (status !== 401 && status !== 403) {
+          showToastError(getApiErrorMessage(err, "attendance.loadTodayFailed"));
+        }
         throw err;
       }
     },
@@ -95,7 +102,7 @@ export function useAttendance() {
     error: monthError,
   } = useQuery<MobileMonthDto | null>({
     queryKey: ["attendance", "month", selectedYear, selectedMonth],
-    enabled: !loadingToday,
+    enabled: isAuthenticated && !loadingToday,
     staleTime: 60_000,
     queryFn: async () => {
       try {
@@ -106,7 +113,11 @@ export function useAttendance() {
         );
         return data;
       } catch (err: unknown) {
-        showToastError(getApiErrorMessage(err, "attendance.loadMonthFailed"));
+        const status = (err as { response?: { status?: number } })?.response
+          ?.status;
+        if (status !== 401 && status !== 403) {
+          showToastError(getApiErrorMessage(err, "attendance.loadMonthFailed"));
+        }
         throw err;
       }
     },

@@ -9,10 +9,32 @@ import { Feather } from "@expo/vector-icons";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 
 const queryClient = new QueryClient();
+
+function isRouteReady(
+  segments: string[],
+  isAuthenticated: boolean,
+  onboardingCompleted: boolean,
+): boolean {
+  const group = segments[0];
+  const screen = segments[1];
+  const inAuthGroup = group === "(auth)";
+  const inTabsGroup = group === "(tabs)";
+  const inMoreGroup = group === "more";
+
+  if (!onboardingCompleted) {
+    return inAuthGroup && screen === "onboarding";
+  }
+
+  if (isAuthenticated) {
+    return inTabsGroup || inMoreGroup;
+  }
+
+  return inAuthGroup && (screen === "login" || screen === "forgot-password");
+}
 
 export default function RootLayout() {
   const isInitialized = useAuthStore((s) => s.isInitialized);
@@ -30,6 +52,13 @@ export default function RootLayout() {
   const theme = Colors[appTheme];
   const statusBarStyle = appTheme === "dark" ? "light" : "dark";
 
+  const routeReady = useMemo(
+    () =>
+      isInitialized &&
+      isRouteReady(segments, isAuthenticated, onboardingCompleted),
+    [isInitialized, segments, isAuthenticated, onboardingCompleted],
+  );
+
   useEffect(() => {
     initializeAuth();
     initLanguage();
@@ -41,25 +70,28 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === "(auth)";
     const isOnboarding = segments[1] === "onboarding";
+    const isLogin = segments[1] === "login";
 
     if (!onboardingCompleted) {
       if (!isOnboarding) {
         router.replace("/(auth)/onboarding");
       }
-    } else {
-      if (isAuthenticated) {
-        if (inAuthGroup) {
-          router.replace("/(tabs)");
-        }
-      } else {
-        if (isOnboarding || !inAuthGroup) {
-          router.replace("/(auth)/login");
-        }
+      return;
+    }
+
+    if (isAuthenticated) {
+      if (inAuthGroup) {
+        router.replace("/(tabs)");
       }
+      return;
+    }
+
+    if (!isLogin && !(inAuthGroup && segments[1] === "forgot-password")) {
+      router.replace("/(auth)/login");
     }
   }, [isInitialized, isAuthenticated, onboardingCompleted, segments]);
 
-  if (!isInitialized) {
+  if (!routeReady) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.background }}>
         <StatusBar style={statusBarStyle} />

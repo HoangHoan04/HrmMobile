@@ -112,7 +112,10 @@ export function useLogin() {
         responseData: error?.response?.data,
       });
 
-      showToastError(getApiErrorMessage(error, "login.loginFailed"));
+      const status = error?.response?.status;
+      const fallbackKey =
+        status === 403 ? "login.noMobileAccess" : "login.loginFailed";
+      showToastError(getApiErrorMessage(error, fallbackKey));
     },
   });
 
