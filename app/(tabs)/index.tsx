@@ -32,7 +32,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const activeColorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[activeColorScheme];
-  const { profile, refetch: refetchProfile } = useProfile();
+  const { profile, loading } = useProfile();
   const {
     today,
     month,
@@ -74,15 +74,12 @@ export default function DashboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Wave B4: today trước (nút vào/ra ca); month + profile lazy
+      // Wave B4 + A3: today trước; month lazy; không refetch heavy profile sau login
       fetchToday()
         .catch(() => undefined)
         .finally(() => {
           const now = new Date();
           fetchMonth(now.getFullYear(), now.getMonth() + 1).catch(() => undefined);
-          setTimeout(() => {
-            refetchProfile().catch(() => undefined);
-          }, 150);
         });
       ensureLocationPermission().catch(() => undefined);
 
@@ -105,7 +102,6 @@ export default function DashboardScreen() {
     }, [
       fetchToday,
       fetchMonth,
-      refetchProfile,
       ensureLocationPermission,
       pulseAnim,
     ]),
@@ -154,12 +150,15 @@ export default function DashboardScreen() {
 
   const displayName =
     profile?.fullName ||
+    user?.fullName ||
     (profile?.username
       ? profile.username.charAt(0).toUpperCase() + profile.username.slice(1)
       : user?.username || t("common.employee"));
 
   const branchLabel =
     today?.branchName || profile?.branchName || profile?.branch || "—";
+
+  const avatarUrl = profile?.avatarUrl || user?.avatarUrl;
 
   const monthStats = useMemo(() => {
     if (month) {
@@ -218,9 +217,9 @@ export default function DashboardScreen() {
               onPress={() => router.push("/(tabs)/profile")}
             >
               <View style={styles.avatarRing}>
-                {profile?.avatarUrl ? (
+                {avatarUrl ? (
                   <Image
-                    source={{ uri: profile.avatarUrl }}
+                    source={{ uri: avatarUrl }}
                     style={styles.avatarImage}
                   />
                 ) : (

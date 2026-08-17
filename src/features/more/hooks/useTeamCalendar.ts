@@ -11,7 +11,7 @@ export type TeamCalendarItem = {
   employeeName?: string | null;
   fromDate?: string;
   toDate?: string;
-  dayOffType?: string | null;
+  dayOffConfigId?: string | null;
   dayOffConfigName?: string | null;
   totalDays?: number;
   status?: string | null;

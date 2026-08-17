@@ -39,11 +39,16 @@ export default function ProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const allowHeavyProfile = useAuthStore((s) => s.allowHeavyProfile);
   const insets = useSafeAreaInsets();
   const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
   const { profile, loading, refetch } = useProfile();
   const { t } = useLanguageStore();
+
+  useEffect(() => {
+    allowHeavyProfile();
+  }, [allowHeavyProfile]);
 
   const [refreshing, setRefreshing] = useState(false);
   const [showAllInfo, setShowAllInfo] = useState(false);

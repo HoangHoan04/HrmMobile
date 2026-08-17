@@ -15,7 +15,6 @@ export interface RegisterDayOffDto {
   branchName?: string | null;
   dayOffConfigId?: string | null;
   dayOffConfigName?: string | null;
-  dayOffType: string;
   fromDate: string;
   toDate: string;
   session?: LeaveSession | string | null;
@@ -34,7 +33,6 @@ export interface RegisterDayOffDto {
 }
 
 export interface CreateLeavePayload {
-  dayOffType: string;
   fromDate: string;
   toDate: string;
   reason?: string;
@@ -55,7 +53,6 @@ export interface MobileLeaveConfigDto {
   id: string;
   code: string;
   name: string;
-  dayOffType: string;
   defaultDaysPerYear: number;
   isPaid: boolean;
   deductBalance: boolean;

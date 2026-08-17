@@ -15,10 +15,13 @@ interface AuthState {
   accessToken: string | null;
   user: any | null;
   onboardingCompleted: boolean;
+  /** Sau login: tạm bỏ heavy /profile để Home ưu tiên attendance */
+  skipHeavyProfile: boolean;
   initializeAuth: () => Promise<void>;
   login: (token: string, rfToken: string, user: any) => Promise<void>;
   logout: () => Promise<void>;
   setOnboardingCompleted: (completed: boolean) => Promise<void>;
+  allowHeavyProfile: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => {
@@ -28,6 +31,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       isAuthenticated: false,
       accessToken: null,
       user: null,
+      skipHeavyProfile: false,
     });
   });
 
@@ -47,6 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     accessToken: null,
     user: null,
     onboardingCompleted: false,
+    skipHeavyProfile: false,
 
     initializeAuth: async () => {
       try {
@@ -61,14 +66,34 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         if (token && rfToken && user) {
           try {
-            await rootApi.get(endpoints.auth.me, {
+            // Wave A: cold start dùng light /me (không attendance / org graph)
+            const { data } = await rootApi.get(endpoints.auth.me, {
               skipErrorToast: true,
             } as any);
+
+            const nextUser = {
+              ...user,
+              username: data?.username ?? user.username,
+              type: data?.type ?? user.type,
+              email: data?.email ?? user.email,
+              fullName: data?.fullName ?? user.fullName,
+              avatarUrl: data?.avatarUrl ?? user.avatarUrl,
+              employeeId: data?.employeeId ?? user.employeeId,
+              companyId: data?.companyId ?? user.companyId,
+              branchId: data?.branchId ?? user.branchId,
+              roles: Array.isArray(data?.roles) ? data.roles : user.roles,
+              permissions: Array.isArray(data?.permissions)
+                ? data.permissions
+                : user.permissions,
+            };
+            await tokenCache.setUser(nextUser);
+
             set({
               isAuthenticated: true,
               accessToken: tokenCache.getAccessToken() || token,
-              user: tokenCache.getUser() || user,
+              user: nextUser,
               onboardingCompleted,
+              skipHeavyProfile: false,
             });
           } catch (error: any) {
             if (isNetworkError(error)) {
@@ -77,6 +102,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
                 accessToken: token,
                 user,
                 onboardingCompleted,
+                skipHeavyProfile: false,
               });
               return;
             }
@@ -89,6 +115,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
                 accessToken: null,
                 user: null,
                 onboardingCompleted,
+                skipHeavyProfile: false,
               });
               return;
             }
@@ -98,6 +125,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
               accessToken: token,
               user,
               onboardingCompleted,
+              skipHeavyProfile: false,
             });
           }
         } else {
@@ -107,11 +135,17 @@ export const useAuthStore = create<AuthState>((set, get) => {
             accessToken: null,
             user: null,
             onboardingCompleted,
+            skipHeavyProfile: false,
           });
         }
       } catch {
         await tokenCache.clear();
-        set({ isAuthenticated: false, accessToken: null, user: null });
+        set({
+          isAuthenticated: false,
+          accessToken: null,
+          user: null,
+          skipHeavyProfile: false,
+        });
       } finally {
         set({ isInitialized: true });
       }
@@ -128,11 +162,18 @@ export const useAuthStore = create<AuthState>((set, get) => {
           accessToken: token,
           user,
           onboardingCompleted: onboardingVal === "true",
+          // Skip heavy /profile ngay sau login — Home dùng login payload + attendance
+          skipHeavyProfile: true,
         });
+        setTimeout(() => {
+          if (get().isAuthenticated) set({ skipHeavyProfile: false });
+        }, 2500);
       } catch {
         //! Ignore SecureStore write errors for now.
       }
     },
+
+    allowHeavyProfile: () => set({ skipHeavyProfile: false }),
 
     logout: async () => {
       try {
@@ -141,12 +182,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
           isAuthenticated: false,
           accessToken: null,
           user: null,
+          skipHeavyProfile: false,
         });
       } catch {
         set({
           isAuthenticated: false,
           accessToken: null,
           user: null,
+          skipHeavyProfile: false,
         });
       }
     },

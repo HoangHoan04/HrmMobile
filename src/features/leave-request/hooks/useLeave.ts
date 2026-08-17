@@ -20,9 +20,6 @@ function mapConfig(c: any): MobileLeaveConfigDto {
     id: String(c?.id ?? ""),
     code: String(c?.code ?? ""),
     name: String(c?.name ?? ""),
-    dayOffType: String(
-      c?.dayOffType ?? enumData.DAY_OFF_TYPE.OTHER.code,
-    ).toUpperCase(),
     defaultDaysPerYear: Number(c?.defaultDaysPerYear) || 0,
     isPaid: !!c?.isPaid,
     deductBalance: c?.deductBalance !== false,
@@ -58,7 +55,6 @@ function mapLeaveDto(raw: any): RegisterDayOffDto {
     dayOffConfigId:
       raw?.dayOffConfigId != null ? String(raw.dayOffConfigId) : null,
     dayOffConfigName: raw?.dayOffConfigName ?? null,
-    dayOffType: String(raw?.dayOffType ?? "OTHER").toUpperCase(),
     fromDate: String(raw?.fromDate ?? ""),
     toDate: String(raw?.toDate ?? ""),
     session: normalizeSession(raw?.session),
@@ -196,7 +192,6 @@ export function useLeave() {
         toDate,
         session,
         reason: payload.reason?.trim() || null,
-        dayOffType: (payload.dayOffType || "ANNUAL").toUpperCase(),
         dayOffConfigId: payload.dayOffConfigId,
         attachmentUrl: payload.attachmentUrl?.trim() || null,
       };

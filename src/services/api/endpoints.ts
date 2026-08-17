@@ -2,6 +2,7 @@ export const endpoints = {
   auth: {
     login: "/mobile/auth/login",
     me: "/mobile/auth/me",
+    profile: "/mobile/auth/profile",
     forgotPassword: "/mobile/auth/forgot-password",
     resetPassword: "/mobile/auth/reset-password-with-otp",
     refreshToken: "/mobile/auth/refresh",

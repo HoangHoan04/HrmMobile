@@ -37,50 +37,6 @@ export const enumData = {
       bg: "#F3F4F6",
     },
   },
-  DAY_OFF_TYPE: {
-    ANNUAL: {
-      code: "ANNUAL",
-      labelKey: "enums.dayOffType.annual",
-      icon: "calendar",
-      color: "#10B981",
-      isPaid: true,
-    },
-    SICK: {
-      code: "SICK",
-      labelKey: "enums.dayOffType.sick",
-      icon: "medical",
-      color: "#F59E0B",
-      isPaid: true,
-    },
-    UNPAID: {
-      code: "UNPAID",
-      labelKey: "enums.dayOffType.unpaid",
-      icon: "wallet-outline",
-      color: "#EF4444",
-      isPaid: false,
-    },
-    MATERNITY: {
-      code: "MATERNITY",
-      labelKey: "enums.dayOffType.maternity",
-      icon: "heart",
-      color: "#EC4899",
-      isPaid: true,
-    },
-    PATERNITY: {
-      code: "PATERNITY",
-      labelKey: "enums.dayOffType.paternity",
-      icon: "people",
-      color: "#06B6D4",
-      isPaid: true,
-    },
-    OTHER: {
-      code: "OTHER",
-      labelKey: "enums.dayOffType.other",
-      icon: "briefcase",
-      color: "#3B82F6",
-      isPaid: true,
-    },
-  },
   DAY_OFF_STATUS: {
     PENDING: {
       code: "PENDING",

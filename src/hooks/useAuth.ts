@@ -28,6 +28,9 @@ function buildAuthUser(data: any, previous?: any) {
     ...(previous || {}),
     username: data?.username || data?.Username || previous?.username,
     type: data?.type || data?.Type || previous?.type,
+    email: data?.email || data?.Email || previous?.email,
+    fullName: data?.fullName || data?.FullName || previous?.fullName,
+    avatarUrl: data?.avatarUrl || data?.AvatarUrl || previous?.avatarUrl,
     employeeId: data?.employeeId || data?.EmployeeId || previous?.employeeId,
     companyId: data?.companyId || data?.CompanyId || previous?.companyId,
     branchId: data?.branchId || data?.BranchId || previous?.branchId,
@@ -220,9 +223,12 @@ export function useForgotPassword() {
   };
 }
 
-export function useProfile() {
+export function useProfile(options?: { enabled?: boolean }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const skipHeavyProfile = useAuthStore((s) => s.skipHeavyProfile);
   const logout = useAuthStore((s) => s.logout);
+  const enabled =
+    (options?.enabled ?? true) && isAuthenticated && !skipHeavyProfile;
 
   const {
     data: profile = null,
@@ -230,7 +236,8 @@ export function useProfile() {
     refetch,
   } = useQuery<MobileProfile | null>({
     queryKey: ["profile"],
-    enabled: isAuthenticated,
+    enabled,
+    staleTime: 60_000,
     retry: (failureCount, error: any) => {
       const status = error?.response?.status;
       if (status === 401 || status === 403 || status === 404) return false;
@@ -239,7 +246,7 @@ export function useProfile() {
     },
     queryFn: async () => {
       try {
-        const { data } = await rootApi.get(endpoints.auth.me, {
+        const { data } = await rootApi.get(endpoints.auth.profile, {
           skipErrorToast: true,
         } as any);
 
@@ -253,6 +260,9 @@ export function useProfile() {
             branchId: normalized?.branchId ?? data?.branchId,
             type: data?.type ?? currentUser?.type,
             username: data?.username ?? currentUser?.username,
+            email: data?.email ?? currentUser?.email,
+            fullName: normalized?.fullName ?? data?.fullName,
+            avatarUrl: normalized?.avatarUrl ?? data?.avatarUrl,
           },
           currentUser,
         );
@@ -262,7 +272,9 @@ export function useProfile() {
             JSON.stringify(currentUser?.roles || []) ||
           JSON.stringify(nextUser.permissions || []) !==
             JSON.stringify(currentUser?.permissions || []) ||
-          nextUser.employeeId !== currentUser?.employeeId;
+          nextUser.employeeId !== currentUser?.employeeId ||
+          nextUser.avatarUrl !== currentUser?.avatarUrl ||
+          nextUser.fullName !== currentUser?.fullName;
 
         if (changed) {
           await tokenCache.setUser(nextUser);

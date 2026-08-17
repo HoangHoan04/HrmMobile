@@ -31,14 +31,6 @@ export const en = {
       absent: "Absent",
       incomplete: "Incomplete",
     },
-    dayOffType: {
-      annual: "Annual leave",
-      sick: "Sick leave",
-      unpaid: "Unpaid leave",
-      maternity: "Maternity leave",
-      paternity: "Paternity leave",
-      other: "Other",
-    },
     dayOffStatus: {
       pending: "Pending",
       approved: "Approved",

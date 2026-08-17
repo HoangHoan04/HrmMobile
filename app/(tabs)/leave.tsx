@@ -9,11 +9,8 @@ import {
   DayOffStatusCode,
   resolveDayOffStatus,
 } from "@/constants/enums/dayOffStatus";
-import {
-  DAY_OFF_TYPE,
-  DayOffTypeCode,
-  resolveDayOffType,
-} from "@/constants/enums/dayOffType";
+import { enumData } from "@/constants/enums/enumData";
+
 import { formatDisplayDate } from "@/features/common";
 import { showToastError } from "@/helper/ToastEventEmitter";
 import {
@@ -45,15 +42,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const FILTER_PENDING_APPROVALS = "pendingApprovals";
 
-const SESSION_OPTIONS: LeaveSession[] = ["FULL", "AM", "PM"];
+const SESSION_OPTIONS: LeaveSession[] = [
+  enumData.LEAVE_SESSION.FULL.value as LeaveSession,
+  enumData.LEAVE_SESSION.AM.value as LeaveSession,
+  enumData.LEAVE_SESSION.PM.value as LeaveSession,
+];
 
 interface LeaveRequest {
   id: string;
-  type: DayOffTypeCode;
   typeName: string;
-  typeLabelKey: string;
-  typeIcon: string;
   typeColor: string;
+  typeIcon: string;
   status: DayOffStatusCode;
   statusLabelKey: string;
   statusAction: "warning" | "success" | "error" | "muted";
@@ -73,31 +72,73 @@ interface LeaveRequest {
   isPendingApproval: boolean;
 }
 
+const CONFIG_UI_FALLBACK = { icon: "briefcase", color: "#3B82F6" } as const;
+
+function resolveConfigUi(config?: MobileLeaveConfigDto | null) {
+  const code = String(config?.code || "").toUpperCase();
+  if (code.includes("SICK") || code.includes("OM")) {
+    return { icon: "medkit", color: "#F59E0B" };
+  }
+  if (
+    code.includes("UNPAID") ||
+    code.includes("KHONG") ||
+    config?.isPaid === false
+  ) {
+    return { icon: "wallet-outline", color: "#EF4444" };
+  }
+  if (code.includes("MATERN") || code.includes("THAI")) {
+    return { icon: "heart", color: "#EC4899" };
+  }
+  if (code.includes("PATERN")) {
+    return { icon: "people", color: "#06B6D4" };
+  }
+  if (
+    code.includes("ANNUAL") ||
+    code.includes("PHEP") ||
+    code.includes("YEAR")
+  ) {
+    return { icon: "calendar", color: "#10B981" };
+  }
+  return CONFIG_UI_FALLBACK;
+}
+
 function formatDays(value: number): string {
   if (!Number.isFinite(value)) return "0";
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 function normalizeSession(value?: string | null): LeaveSession {
-  const raw = String(value || "FULL").toUpperCase();
-  if (raw === "AM" || raw === "PM") return raw;
-  return "FULL";
+  const raw = String(value || enumData.LEAVE_SESSION.FULL.value).toUpperCase();
+  if (raw === enumData.LEAVE_SESSION.AM.value) {
+    return enumData.LEAVE_SESSION.AM.value as LeaveSession;
+  }
+  if (raw === enumData.LEAVE_SESSION.PM.value) {
+    return enumData.LEAVE_SESSION.PM.value as LeaveSession;
+  }
+  return enumData.LEAVE_SESSION.FULL.value as LeaveSession;
 }
 
 function mapLeaveDto(
   dto: RegisterDayOffDto,
+  configs: MobileLeaveConfigDto[] = [],
   isPendingApproval = false,
 ): LeaveRequest {
-  const typeMeta = resolveDayOffType(dto.dayOffType);
   const statusMeta = resolveDayOffStatus(dto.status);
+  const config =
+    configs.find((c) => c.id === dto.dayOffConfigId) ??
+    configs.find(
+      (c) =>
+        !!dto.dayOffConfigName &&
+        c.name.trim().toLowerCase() ===
+          String(dto.dayOffConfigName).trim().toLowerCase(),
+    );
+  const typeUi = resolveConfigUi(config);
 
   return {
     id: dto.id,
-    type: typeMeta.code as DayOffTypeCode,
-    typeName: dto.dayOffConfigName || "",
-    typeLabelKey: typeMeta.labelKey,
-    typeIcon: typeMeta.icon,
-    typeColor: typeMeta.color,
+    typeName: dto.dayOffConfigName || config?.name || "",
+    typeColor: typeUi.color,
+    typeIcon: typeUi.icon,
     status: statusMeta.code as DayOffStatusCode,
     statusLabelKey: statusMeta.labelKey,
     statusAction: statusMeta.action,
@@ -125,8 +166,8 @@ function toFormOptions(
 }
 
 function sessionLabelKey(session: LeaveSession): string {
-  if (session === "AM") return "leave.sessionAm";
-  if (session === "PM") return "leave.sessionPm";
+  if (session === enumData.LEAVE_SESSION.AM.value) return "leave.sessionAm";
+  if (session === enumData.LEAVE_SESSION.PM.value) return "leave.sessionPm";
   return "leave.sessionFull";
 }
 
@@ -154,15 +195,15 @@ export default function LeaveScreen() {
   const { canApproveLeave } = usePermissions();
 
   const leaves = useMemo(
-    () => leaveDtos.map((d) => mapLeaveDto(d)),
-    [leaveDtos],
+    () => leaveDtos.map((d) => mapLeaveDto(d, configs)),
+    [leaveDtos, configs],
   );
   const pendingApprovals = useMemo(
     () =>
       canApproveLeave
-        ? pendingApprovalDtos.map((d) => mapLeaveDto(d, true))
+        ? pendingApprovalDtos.map((d) => mapLeaveDto(d, configs, true))
         : [],
-    [canApproveLeave, pendingApprovalDtos],
+    [canApproveLeave, pendingApprovalDtos, configs],
   );
 
   const [refreshing, setRefreshing] = useState(false);
@@ -171,9 +212,6 @@ export default function LeaveScreen() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formConfigId, setFormConfigId] = useState<string | null>(null);
-  const [formType, setFormType] = useState<DayOffTypeCode>(
-    DAY_OFF_TYPE.ANNUAL.code as DayOffTypeCode,
-  );
   const [formSession, setFormSession] = useState<LeaveSession>("FULL");
   const [formStartDate, setFormStartDate] = useState("");
   const [formEndDate, setFormEndDate] = useState("");
@@ -189,12 +227,8 @@ export default function LeaveScreen() {
     if (formConfigId) {
       return formOptions.find((c) => c.id === formConfigId) || null;
     }
-    return (
-      formOptions.find(
-        (c) => resolveDayOffType(c.dayOffType || c.code).code === formType,
-      ) || null
-    );
-  }, [formConfigId, formOptions, formType]);
+    return formOptions[0] || null;
+  }, [formConfigId, formOptions]);
 
   const requireAttachment = !!selectedConfig?.requireAttachment;
   const deductBalance = !!selectedConfig?.deductBalance;
@@ -210,7 +244,6 @@ export default function LeaveScreen() {
     const first = formOptions[0];
     if (!first) return;
     setFormConfigId(first.id || null);
-    setFormType(resolveDayOffType(first.dayOffType).code as DayOffTypeCode);
   }, [isCreateOpen, formOptions]);
 
   useEffect(() => {
@@ -277,7 +310,6 @@ export default function LeaveScreen() {
     setFormReason("");
     setFormAttachmentUrl("");
     setFormConfigId(null);
-    setFormType(DAY_OFF_TYPE.ANNUAL.code as DayOffTypeCode);
     setFormSession("FULL");
     setPreviewTotalDays(null);
   };
@@ -409,11 +441,7 @@ export default function LeaveScreen() {
         : ((await previewDays(formStartDate, formEndDate, formSession))
             ?.totalDays ?? 0);
 
-    if (
-      deductBalance &&
-      formType === DAY_OFF_TYPE.ANNUAL.code &&
-      requestDays > 0
-    ) {
+    if (deductBalance && requestDays > 0) {
       const remaining = Number(balance?.annualRemaining) || 0;
       if (requestDays > remaining) {
         showToastError(
@@ -428,7 +456,6 @@ export default function LeaveScreen() {
 
     try {
       await createLeave({
-        dayOffType: formType,
         fromDate: formStartDate,
         toDate:
           formSession === "AM" || formSession === "PM"
@@ -517,23 +544,15 @@ export default function LeaveScreen() {
   const hasItems = Object.keys(groupedLeaves).length > 0;
 
   const typeLabel = (option: MobileLeaveConfigDto) => {
-    if (option.name?.trim()) return option.name;
-    return t(resolveDayOffType(option.dayOffType || option.code).labelKey);
+    return option.name?.trim() || option.code;
   };
 
   const selectFormOption = (option: MobileLeaveConfigDto) => {
     setFormConfigId(option.id || null);
-    setFormType(
-      resolveDayOffType(option.dayOffType || option.code)
-        .code as DayOffTypeCode,
-    );
   };
 
   const isOptionActive = (option: MobileLeaveConfigDto) => {
-    if (option.id && formConfigId) return option.id === formConfigId;
-    return (
-      resolveDayOffType(option.dayOffType || option.code).code === formType
-    );
+    return selectedConfig?.id === option.id;
   };
 
   const filterLabel = (code: DayOffStatusCode, n: number) => {
@@ -796,7 +815,7 @@ export default function LeaveScreen() {
                           { color: theme.textMain },
                         ]}
                       >
-                        {item.typeName || t(item.typeLabelKey)}
+                        {item.typeName || "—"}
                       </Text>
                     </View>
                     <Badge action={item.statusAction}>
@@ -989,7 +1008,7 @@ export default function LeaveScreen() {
                         { color: theme.textMain, fontWeight: "800" },
                       ]}
                     >
-                      {selectedLeave.typeName || t(selectedLeave.typeLabelKey)}
+                      {selectedLeave.typeName || "—"}
                     </Text>
                   </View>
 
@@ -1281,7 +1300,7 @@ export default function LeaveScreen() {
                   <View style={styles.pickerRow}>
                     {formOptions.map((option) => {
                       const active = isOptionActive(option);
-                      const key = option.id || option.code || option.dayOffType;
+                      const key = option.id || option.code;
                       return (
                         <TouchableOpacity
                           key={key}

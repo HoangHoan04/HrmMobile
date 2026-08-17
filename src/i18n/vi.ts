@@ -30,14 +30,6 @@ export const vi = {
       absent: "Vắng mặt",
       incomplete: "Chưa hoàn tất",
     },
-    dayOffType: {
-      annual: "Nghỉ phép năm",
-      sick: "Nghỉ ốm",
-      unpaid: "Nghỉ không lương",
-      maternity: "Nghỉ thai sản",
-      paternity: "Nghỉ chăm con",
-      other: "Khác",
-    },
     dayOffStatus: {
       pending: "Đang duyệt",
       approved: "Đã duyệt",

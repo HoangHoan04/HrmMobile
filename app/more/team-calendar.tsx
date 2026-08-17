@@ -63,7 +63,7 @@ export default function TeamCalendarScreen() {
             {item.employeeName || item.employeeCode || "—"}
           </Text>
           <Text style={{ color: theme.textSecondary, marginTop: 4 }}>
-            {item.dayOffConfigName || item.dayOffType || "—"}
+            {item.dayOffConfigName || "—"}
           </Text>
           <Text style={{ color: theme.textMain, marginTop: 6 }}>
             {item.fromDate} → {item.toDate} · {item.totalDays ?? 0}{" "}
