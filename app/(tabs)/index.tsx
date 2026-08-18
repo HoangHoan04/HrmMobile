@@ -74,12 +74,13 @@ export default function DashboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Wave B4 + A3: today trước; month lazy; không refetch heavy profile sau login
       fetchToday()
         .catch(() => undefined)
         .finally(() => {
           const now = new Date();
-          fetchMonth(now.getFullYear(), now.getMonth() + 1).catch(() => undefined);
+          fetchMonth(now.getFullYear(), now.getMonth() + 1).catch(
+            () => undefined,
+          );
         });
       ensureLocationPermission().catch(() => undefined);
 
@@ -99,12 +100,7 @@ export default function DashboardScreen() {
       );
       pulse.start();
       return () => pulse.stop();
-    }, [
-      fetchToday,
-      fetchMonth,
-      ensureLocationPermission,
-      pulseAnim,
-    ]),
+    }, [fetchToday, fetchMonth, ensureLocationPermission, pulseAnim]),
   );
 
   const handleAttendancePress = async () => {

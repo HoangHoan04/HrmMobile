@@ -29,6 +29,14 @@ export default function MoreHubScreen() {
   const items = useMemo<HubItem[]>(
     () => [
       {
+        id: "complaints",
+        titleKey: "more.complaints",
+        descKey: "more.complaintsDesc",
+        icon: "alert-circle-outline",
+        route: "/more/attendance-complaints",
+        color: "#EC4899",
+      },
+      {
         id: "ot",
         titleKey: "more.ot",
         descKey: "more.otDesc",

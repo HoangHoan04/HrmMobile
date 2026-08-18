@@ -65,7 +65,6 @@ const initApi = (url?: string, headers = {}) => {
 
     const nextRfToken = data.refreshToken || data.RefreshToken || rfToken;
     const currentUser = tokenCache.getUser() || {};
-    // Wave B5: sync roles/permissions từ refresh body
     const nextUser = {
       ...currentUser,
       roles: Array.isArray(data?.roles) ? data.roles : currentUser.roles,
@@ -121,11 +120,7 @@ const initApi = (url?: string, headers = {}) => {
         (hasAuthorizationHeader(originalRequest?.headers) ||
           !!tokenCache.getAccessToken());
 
-      if (
-        status === 401 &&
-        !originalRequest?._retry &&
-        canTryRefresh
-      ) {
+      if (status === 401 && !originalRequest?._retry && canTryRefresh) {
         if (isRefreshing) {
           return new Promise((resolve, reject) => {
             failedQueue.push({

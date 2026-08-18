@@ -1,12 +1,12 @@
 import { showAlert, showConfirm } from "@/components/ui/confirm";
-import { showToastError, showToastSuccess } from "@/helper/ToastEventEmitter";
+import { MobileMonthDto, MobileTodayDto } from "@/features/attendance/types";
 import { getApiErrorMessage, t } from "@/features/common";
+import { showToastError, showToastSuccess } from "@/helper/ToastEventEmitter";
 import { rootApi } from "@/services";
 import { endpoints } from "@/services/api/endpoints";
-import { MobileMonthDto, MobileTodayDto } from "@/features/attendance/types";
 import { useAuthStore } from "@/store/authStore";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Location from "expo-location";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { Linking, Platform } from "react-native";
 
@@ -95,7 +95,6 @@ export function useAttendance() {
     },
   });
 
-  // Wave B4: ưu tiên today (check-in); month load sau khi today xong
   const {
     data: month = null,
     isLoading: loadingMonth,

@@ -21,6 +21,14 @@ export const en = {
     skip: "Skip",
     serverUnavailable:
       "Server is connecting or has an error, please try again later",
+    pending: "Pending",
+    approved: "Approved",
+    rejected: "Rejected",
+    cancelled: "Cancelled",
+    noData: "No data found",
+    date: "Date",
+    approverNote: "Approver note",
+    cancelRequest: "Cancel request",
   },
   enums: {
     attendance: {
@@ -256,6 +264,8 @@ export const en = {
       typeOther: "Other",
       requestedCheckIn: "Requested check-in (HH:mm)",
       requestedCheckOut: "Requested check-out (HH:mm)",
+      requestedCheckInShort: "Req. In",
+      requestedCheckOutShort: "Req. Out",
       reason: "Reason",
       reasonPlaceholder: "E.g. Forgot to punch at 08:00...",
       submit: "Submit request",
@@ -263,6 +273,7 @@ export const en = {
       createFailed: "Could not submit complaint",
       cancelSuccess: "Complaint cancelled",
       cancelFailed: "Could not cancel complaint",
+      cancelConfirm: "Are you sure you want to cancel this complaint?",
       invalidTime: "Time must be HH:mm (e.g. 08:30).",
       reasonRequired: "Please enter a reason.",
       futureNotAllowed: "Cannot complain about a future date.",
@@ -491,6 +502,8 @@ export const en = {
   more: {
     title: "More",
     subtitle: "Phase M modules for work, team, and self-service",
+    complaints: "Attendance complaints",
+    complaintsDesc: "History and file new complaints",
     ot: "Overtime",
     otDesc: "My OT requests",
     teamCalendar: "Team leave calendar",

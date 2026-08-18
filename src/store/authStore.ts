@@ -1,5 +1,5 @@
-import { isNetworkError } from "@/features/common/apiError";
 import { getApiErrorMessage } from "@/features/common";
+import { isNetworkError } from "@/features/common/apiError";
 import { showToastError } from "@/helper/ToastEventEmitter";
 import { endpoints } from "@/services/api/endpoints";
 import { rootApi } from "@/services/api/rootApi";
@@ -17,7 +17,6 @@ interface AuthState {
   accessToken: string | null;
   user: any | null;
   onboardingCompleted: boolean;
-  /** Sau login: tạm bỏ heavy /profile để Home ưu tiên attendance */
   skipHeavyProfile: boolean;
   initializeAuth: () => Promise<void>;
   login: (token: string, rfToken: string, user: any) => Promise<void>;
@@ -38,7 +37,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
   });
 
   setTokenRefreshedHandler((accessToken) => {
-    // Wave B5: đồng bộ user (roles/permissions) sau refresh
     const user = tokenCache.getUser();
     set({
       accessToken,
@@ -68,7 +66,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         if (token && rfToken && user) {
           try {
-            // Wave A: cold start dùng light /me (không attendance / org graph)
             const { data } = await rootApi.get(endpoints.auth.me, {
               skipErrorToast: true,
             } as any);
@@ -169,7 +166,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
           accessToken: token,
           user,
           onboardingCompleted: onboardingVal === "true",
-          // Skip heavy /profile ngay sau login — Home dùng login payload + attendance
           skipHeavyProfile: true,
         });
         setTimeout(() => {

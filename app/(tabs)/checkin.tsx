@@ -23,7 +23,7 @@ import {
   toDateOnly,
 } from "@/utils/formatters";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -426,6 +426,28 @@ export default function CheckInScreen() {
                 : t("checkin.hoursComplete")}
           </Text>
         </View>
+
+        <TouchableOpacity
+          style={[
+            styles.complaintShortcutBtn,
+            { backgroundColor: theme.cardBg, borderColor: theme.border },
+          ]}
+          onPress={() => router.push("/more/attendance-complaints")}
+          activeOpacity={0.75}
+        >
+          <View style={styles.complaintShortcutIcon}>
+            <Ionicons name="alert-circle-outline" size={18} color="#EC4899" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.complaintShortcutTitle, { color: theme.textMain }]}>
+              {t("checkin.complaint.action")}
+            </Text>
+            <Text style={[styles.complaintShortcutDesc, { color: theme.textSecondary }]}>
+              {t("more.complaintsDesc")}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+        </TouchableOpacity>
 
         <Calendar
           month={currentMonth}
@@ -1491,5 +1513,32 @@ const styles = StyleSheet.create({
   },
   complaintField: {
     gap: 8,
+  },
+  complaintShortcutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    gap: 10,
+  },
+  complaintShortcutIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#EC489918",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  complaintShortcutTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  complaintShortcutDesc: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 2,
   },
 });

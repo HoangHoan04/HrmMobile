@@ -1,13 +1,31 @@
 import { Colors } from "@/constants/common/Colors";
 import { useLanguageStore } from "@/store/languageStore";
 import { useThemeStore } from "@/store/themeStore";
-import { Stack } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { router, Stack } from "expo-router";
 import React from "react";
+import { TouchableOpacity } from "react-native";
 
 export default function MoreLayout() {
   const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
   const { t } = useLanguageStore();
+
+  const handleSubScreenBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/more");
+    }
+  };
+
+  const handleIndexBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)");
+    }
+  };
 
   return (
     <Stack
@@ -16,10 +34,53 @@ export default function MoreLayout() {
         headerTintColor: theme.textMain,
         headerTitleStyle: { fontWeight: "700", fontSize: 16 },
         headerShadowVisible: false,
+        headerBackVisible: false,
+        gestureEnabled: true,
+        fullScreenGestureEnabled: true,
+        animation: "slide_from_right",
         contentStyle: { backgroundColor: theme.background },
+        headerLeft: () => (
+          <TouchableOpacity
+            onPress={handleSubScreenBack}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={{
+              width: 30,
+              height: 30,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={24} color={theme.textMain} />
+          </TouchableOpacity>
+        ),
       }}
     >
-      <Stack.Screen name="index" options={{ title: t("more.title") }} />
+      <Stack.Screen
+        name="index"
+        options={{
+          title: t("more.title"),
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={handleSubScreenBack}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={{
+                width: 30,
+                height: 30,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={24} color={theme.textMain} />
+            </TouchableOpacity>
+          ),
+        }}
+      />
+      <Stack.Screen
+        name="attendance-complaints"
+        options={{ title: t("more.complaints") }}
+      />
       <Stack.Screen name="ot" options={{ title: t("more.ot") }} />
       <Stack.Screen
         name="team-calendar"

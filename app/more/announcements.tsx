@@ -12,8 +12,13 @@ import { Text } from "react-native";
 export default function AnnouncementsScreen() {
   const theme = Colors[useThemeStore((s) => s.theme)];
   const { t } = useLanguageStore();
-  const { data = [], isLoading, isRefetching, error, refetch } =
-    useAnnouncements();
+  const {
+    data = [],
+    isLoading,
+    isRefetching,
+    error,
+    refetch,
+  } = useAnnouncements();
 
   return (
     <MoreListShell
