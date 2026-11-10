@@ -204,6 +204,17 @@ export default function ProfileScreen() {
       ? user.username.charAt(0).toUpperCase() + user.username.slice(1)
       : t("common.employee"));
 
+  /** Dịch mã (WORKING, FULL_TIME, MALE...) sang nhãn; mã lạ thì hiển thị nguyên mã. */
+  const translateCode = useCallback(
+    (group: string, code?: string | null) => {
+      if (!code) return null;
+      const key = `profile.${group}.${code.trim().toUpperCase()}`;
+      const label = t(key);
+      return label === key ? code : label;
+    },
+    [t],
+  );
+
   const positionLabel = profile?.positionName || profile?.position;
   const companyLabel = profile?.companyName || profile?.company;
   const branchLabel = profile?.branchName || profile?.branch;
@@ -271,6 +282,11 @@ export default function ProfileScreen() {
         value: profile?.dateOfBirth,
       },
       {
+        icon: "person-outline",
+        label: t("profile.fieldGender"),
+        value: translateCode("gender", profile?.gender),
+      },
+      {
         icon: "location-outline",
         label: t("profile.fieldAddress"),
         value: profile?.address || profile?.permanentAddress,
@@ -278,6 +294,11 @@ export default function ProfileScreen() {
     ];
 
     const work: InfoItem[] = [
+      {
+        icon: "business-outline",
+        label: t("profile.fieldBranch"),
+        value: profile?.branchName || profile?.branch,
+      },
       {
         icon: "people-outline",
         label: t("profile.fieldDepartment"),
@@ -289,6 +310,16 @@ export default function ProfileScreen() {
         value: profile?.partName || profile?.part,
       },
       {
+        icon: "briefcase-outline",
+        label: t("profile.fieldPosition"),
+        value: profile?.positionName || profile?.position,
+      },
+      {
+        icon: "ribbon-outline",
+        label: t("profile.fieldLevel"),
+        value: profile?.level,
+      },
+      {
         icon: "calendar-clear-outline",
         label: t("profile.fieldJoinDate"),
         value: profile?.joinDate,
@@ -296,17 +327,22 @@ export default function ProfileScreen() {
       {
         icon: "checkmark-circle-outline",
         label: t("profile.fieldStatus"),
-        value: profile?.status,
+        value: translateCode("workStatus", profile?.status),
       },
       {
         icon: "construct-outline",
         label: t("profile.fieldWorkingMode"),
-        value: profile?.workingMode,
+        value: translateCode("workingModeLabel", profile?.workingMode),
+      },
+      {
+        icon: "document-text-outline",
+        label: t("profile.fieldContractType"),
+        value: profile?.contractType,
       },
     ];
 
     return { personal, work };
-  }, [profile, user?.email, t]);
+  }, [profile, user?.email, t, translateCode]);
 
   const visiblePersonal = showAllInfo
     ? infoItems.personal

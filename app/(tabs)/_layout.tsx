@@ -2,15 +2,15 @@ import { Colors } from "@/constants/common/Colors";
 import { useLanguageStore } from "@/store/languageStore";
 import { useThemeStore } from "@/store/themeStore";
 import { Ionicons } from "@expo/vector-icons";
-import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import * as Haptics from "expo-haptics";
 import { Tabs } from "expo-router";
+import type { BottomTabBarProps } from "expo-router/tabs";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+function CustomTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const colorScheme = useThemeStore((s) => s.theme);
   const theme = Colors[colorScheme];
   const insets = useSafeAreaInsets();
@@ -27,14 +27,14 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
     const onPress = () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const event = navigation.emit({
+      const event = emitter.emit({
         type: "tabPress",
         target: route.key,
         canPreventDefault: true,
       });
 
       if (!isFocused && !event.defaultPrevented) {
-        navigation.navigate(route.name, route.params);
+        navigateToTab(route.key);
       }
     };
 

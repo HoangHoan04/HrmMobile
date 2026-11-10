@@ -652,7 +652,7 @@ export function AppDrawer() {
 
 const styles = StyleSheet.create({
   drawerRoot: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1000,
     elevation: 1000,
   },

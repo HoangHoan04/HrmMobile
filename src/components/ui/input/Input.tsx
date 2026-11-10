@@ -1,6 +1,11 @@
 import { Colors } from "@/constants/common/Colors";
 import React, { useState } from "react";
-import { useColorScheme, View, TextInput } from "react-native";
+import {
+  useColorScheme,
+  View,
+  TextInput,
+  type TextInputProps,
+} from "react-native";
 
 interface CustomInputProps {
   value?: string;
@@ -15,6 +20,11 @@ interface CustomInputProps {
   rightSlot?: React.ReactNode;
   leftSlot?: React.ReactNode;
   style?: any;
+  /** Extra props forwarded to the underlying TextInput. */
+  inputProps?: Omit<
+    TextInputProps,
+    "value" | "onChangeText" | "placeholder" | "secureTextEntry" | "style"
+  >;
 }
 
 export const Input = ({
@@ -30,6 +40,7 @@ export const Input = ({
   rightSlot,
   leftSlot,
   style,
+  inputProps,
 }: CustomInputProps) => {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
@@ -72,9 +83,16 @@ export const Input = ({
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
         editable={!isDisabled && !isReadOnly}
+        {...inputProps}
+        onFocus={(e) => {
+          setIsFocused(true);
+          inputProps?.onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setIsFocused(false);
+          inputProps?.onBlur?.(e);
+        }}
       />
       {rightSlot}
     </View>

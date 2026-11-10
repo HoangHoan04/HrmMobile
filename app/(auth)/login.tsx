@@ -1,6 +1,10 @@
-import { LanguageChange } from "@/components/common/LanguageChange";
+import {
+  AuthField,
+  AuthInputIcon,
+  useAuthInputStyle,
+} from "@/components/auth/AuthField";
+import { AuthHero, SHEET_OVERLAP } from "@/components/auth/AuthHero";
 import { Button } from "@/components/ui/button/Button";
-import { showAlert } from "@/components/ui/confirm";
 import { Checkbox } from "@/components/ui/input/Checkbox";
 import { Input } from "@/components/ui/input/Input";
 import { InputPassword } from "@/components/ui/input/InputPassword";
@@ -19,20 +23,21 @@ import { useLanguageStore } from "@/store/languageStore";
 import { keyboardAvoidingBehavior } from "@/utils/helpers";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
-  Dimensions,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Linking,
-  Platform,
+  Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
   useColorScheme,
   View,
 } from "react-native";
-
-const { width } = Dimensions.get("window");
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function LoginScreen() {
   const {
@@ -51,10 +56,15 @@ export default function LoginScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
+  const isDark = colorScheme === "dark";
+  const insets = useSafeAreaInsets();
+  const inputStyle = useAuthInputStyle();
   const { t } = useLanguageStore();
 
   const [isHrModalOpen, setIsHrModalOpen] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
+
+  const canSubmit = !!username.trim() && !!password && !loading;
 
   const hrContacts = [
     {
@@ -74,8 +84,8 @@ export default function LoginScreen() {
       email: "recruitment@company.com",
       phone: "+84 902 345 678",
       ext: "102",
-      bg: "#F0FDF4",
-      color: "#16A34A",
+      bg: "#DCFCE7",
+      color: "#15803D",
     },
   ];
 
@@ -89,14 +99,6 @@ export default function LoginScreen() {
     Linking.openURL(`mailto:${email}`).catch(() => {
       showToastError(t("login.openEmailFailed"));
     });
-  };
-
-  const handleSocialLogin = (platform: string) => {
-    showAlert(
-      t("login.socialTitle"),
-      t("login.socialUnsupported", { platform }),
-      { variant: "info" },
-    );
   };
 
   const handleBiometricUnlock = async () => {
@@ -117,406 +119,232 @@ export default function LoginScreen() {
     }
   };
 
+  const submit = () => {
+    if (canSubmit) handleLogin();
+  };
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: theme.background }}
       behavior={keyboardAvoidingBehavior}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
     >
+      <StatusBar style="light" />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        <View style={{ height: 260, position: "relative", overflow: "hidden" }}>
-          <View
-            style={{
-              position: "absolute",
-              top: -150,
-              left: -100,
-              width: width * 1.5,
-              height: 380,
-              borderRadius: width,
-              backgroundColor: theme.primary,
-              opacity: 0.1,
-            }}
-          />
-          <View
-            style={{
-              position: "absolute",
-              top: -120,
-              left: -80,
-              width: width * 1.3,
-              height: 330,
-              borderRadius: width,
-              backgroundColor: theme.primary,
-              transform: [{ scaleX: 1.15 }, { rotate: "-10deg" }],
-            }}
-          />
-          <View
-            style={{
-              position: "absolute",
-              top: -100,
-              left: -50,
-              width: width * 1.1,
-              height: 290,
-              borderRadius: width,
-              backgroundColor: theme.primaryActive,
-              opacity: 0.75,
-              transform: [{ rotate: "-5deg" }],
-            }}
-          />
-
-          <View
-            style={{ position: "absolute", top: 60, right: 24, zIndex: 10 }}
-          >
-            <LanguageChange color="#FFFFFF" />
-          </View>
-
-          <View
-            style={{
-              position: "absolute",
-              bottom: 100,
-              left: 32,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-            }}
-          >
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 12,
-                backgroundColor: "rgba(255, 255, 255, 0.2)",
-                justifyContent: "center",
-                alignItems: "center",
-                borderWidth: 1.5,
-                borderColor: "rgba(255, 255, 255, 0.3)",
-              }}
-            >
-              <Feather name="briefcase" size={24} color="#FFFFFF" />
-            </View>
-            <View>
-              <Text
-                style={{
-                  fontSize: 24,
-                  fontWeight: "800",
-                  color: "#FFFFFF",
-                  letterSpacing: 1,
-                }}
-              >
-                SMARTHRM
-              </Text>
-              <Text
-                style={{
-                  fontSize: 11,
-                  color: "rgba(255, 255, 255, 0.85)",
-                  fontWeight: "500",
-                  marginTop: 1,
-                }}
-              >
-                Hệ thống quản lý nhân sự
-              </Text>
-            </View>
-          </View>
-        </View>
+        <AuthHero
+          showBrand
+          brandTagline={t("login.tagline")}
+          title={t("login.welcome")}
+          subtitle={t("login.subtitle")}
+        />
 
         <View
-          style={{
-            flex: 1,
-            paddingHorizontal: 24,
-            paddingTop: 10,
-            paddingBottom: 40,
-            backgroundColor: theme.background,
-            marginTop: -25,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-          }}
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: theme.background,
+              paddingBottom: Math.max(insets.bottom, 16) + 16,
+            },
+          ]}
         >
-          <View
-            style={{
-              backgroundColor: theme.cardBg,
-              borderRadius: 24,
-              padding: 24,
-              shadowColor: "#0F172A",
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.06,
-              shadowRadius: 16,
-              elevation: 4,
-              borderWidth: 1,
-              borderColor: theme.border,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 22,
-                fontWeight: "800",
-                color: theme.textMain,
-                marginBottom: 6,
-              }}
-            >
-              {t("login.title")}
-            </Text>
-            <Text
-              style={{
-                fontSize: 14,
-                color: theme.textSecondary,
-                marginBottom: 24,
-              }}
-            >
-              Login first to your account
-            </Text>
-
-            <View style={{ gap: 16 }}>
+          <View style={{ gap: 18 }}>
+            <AuthField label={t("login.username")}>
               <Input
                 value={username}
                 onChangeText={setUsername}
-                placeholder={t("login.username")}
+                placeholder={t("login.usernamePlaceholder")}
                 autoCapitalize="none"
-                style={{
-                  height: 52,
-                  borderRadius: 14,
-                  backgroundColor: theme.background,
-                  fontSize: 14,
-                  borderWidth: 1,
-                  borderColor: theme.border,
+                keyboardType="email-address"
+                style={inputStyle}
+                inputProps={{
+                  autoCorrect: false,
+                  autoComplete: "username",
+                  textContentType: "username",
                 }}
-                leftSlot={
-                  <View style={{ paddingLeft: 12, paddingRight: 6 }}>
-                    <Ionicons
-                      name="person-outline"
-                      size={18}
-                      color={username ? theme.primary : theme.textSecondary}
-                    />
-                  </View>
-                }
+                leftSlot={<AuthInputIcon name="mail" active={!!username} />}
               />
+            </AuthField>
 
+            <AuthField label={t("login.password")}>
               <InputPassword
                 value={password}
                 onChangeText={setPassword}
-                placeholder={t("login.password")}
-                style={{
-                  height: 52,
-                  borderRadius: 14,
-                  backgroundColor: theme.background,
-                  fontSize: 14,
-                  borderWidth: 1,
-                  borderColor: theme.border,
+                placeholder={t("login.passwordPlaceholder")}
+                style={inputStyle}
+                inputProps={{
+                  autoComplete: "password",
+                  textContentType: "password",
+                  returnKeyType: "go",
+                  onSubmitEditing: submit,
                 }}
-                leftSlot={
-                  <View style={{ paddingLeft: 12, paddingRight: 6 }}>
-                    <Ionicons
-                      name="lock-closed-outline"
-                      size={18}
-                      color={password ? theme.primary : theme.textSecondary}
-                    />
-                  </View>
-                }
+                leftSlot={<AuthInputIcon name="lock" active={!!password} />}
               />
+            </AuthField>
+          </View>
 
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginTop: 2,
-                }}
+          <View style={styles.optionsRow}>
+            <Checkbox
+              isChecked={rememberMe}
+              onChange={setRememberMe}
+              label={t("login.rememberMe")}
+            />
+            <TouchableOpacity
+              onPress={() => router.push(ROUTES.auth.forgotPassword)}
+              activeOpacity={0.7}
+              hitSlop={8}
+            >
+              <Text style={[styles.link, { color: theme.primary }]}>
+                {t("login.forgotPassword")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.actionsRow}>
+            <View style={{ flex: 1 }}>
+              <Button
+                onPress={submit}
+                isDisabled={!canSubmit}
+                isLoading={loading}
+                label={t("login.title")}
+                icon={<Feather name="arrow-right" size={18} color="#FFFFFF" />}
+                iconPosition="right"
+                style={[
+                  styles.primaryBtn,
+                  canSubmit && {
+                    shadowColor: theme.primary,
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 14,
+                    elevation: 6,
+                  },
+                ]}
+                textStyle={styles.primaryBtnText}
+              />
+            </View>
+
+            {biometricAvailable ? (
+              <Pressable
+                onPress={handleBiometricUnlock}
+                disabled={biometricLoading || loading}
+                accessibilityRole="button"
+                accessibilityLabel={t("login.biometricUnlock")}
+                style={({ pressed }) => [
+                  styles.bioBtn,
+                  {
+                    borderColor: isDark ? "#1E3A8A" : "#BFDBFE",
+                    backgroundColor: pressed
+                      ? isDark
+                        ? "#172554"
+                        : "#DBEAFE"
+                      : isDark
+                        ? "#0B1220"
+                        : "#EFF6FF",
+                    opacity: biometricLoading || loading ? 0.6 : 1,
+                  },
+                ]}
               >
-                <Checkbox
-                  isChecked={rememberMe}
-                  onChange={setRememberMe}
-                  label={t("login.rememberMe")}
-                />
-
-                <TouchableOpacity
-                  onPress={() => router.push(ROUTES.auth.forgotPassword)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontWeight: "700",
-                      color: theme.primary,
-                      paddingVertical: 4,
-                    }}
-                  >
-                    {t("login.forgotPassword")}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ marginTop: 8 }}>
-                <Button
-                  onPress={handleLogin}
-                  isDisabled={loading || !username || !password}
-                  isLoading={loading}
-                  label={loading ? t("common.processing") : t("login.title")}
-                  style={{
-                    height: 52,
-                    borderRadius: 14,
-                    backgroundColor: theme.primary,
-                    justifyContent: "center",
-                    alignItems: "center",
-                    ...Platform.select({
-                      ios: {
-                        shadowColor: theme.primary,
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.2,
-                        shadowRadius: 6,
-                      },
-                      android: {
-                        elevation: 3,
-                      },
-                    }),
-                  }}
-                  textStyle={{
-                    fontSize: 15,
-                    fontWeight: "700",
-                    color: "#FFFFFF",
-                  }}
-                />
-              </View>
-
-              {biometricAvailable ? (
-                <TouchableOpacity
-                  style={{
-                    marginTop: 12,
-                    height: 48,
-                    borderRadius: 14,
-                    borderWidth: 1.5,
-                    borderColor: theme.primary,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    opacity: biometricLoading || loading ? 0.7 : 1,
-                  }}
-                  disabled={biometricLoading || loading}
-                  onPress={handleBiometricUnlock}
-                  activeOpacity={0.8}
-                >
+                {biometricLoading ? (
+                  <ActivityIndicator color={theme.primary} />
+                ) : (
                   <Ionicons
                     name="finger-print"
-                    size={20}
+                    size={26}
                     color={theme.primary}
                   />
-                  <Text
-                    style={{
-                      color: theme.primary,
-                      fontWeight: "700",
-                      fontSize: 14,
-                    }}
-                  >
-                    {t("login.biometricUnlock")}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
+                )}
+              </Pressable>
+            ) : null}
+          </View>
 
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginVertical: 14,
-                }}
-              >
-                <View
-                  style={{ flex: 1, height: 1, backgroundColor: theme.border }}
-                />
-                <Text
-                  style={{
-                    fontSize: 12,
-                    color: theme.textSecondary,
-                    marginHorizontal: 12,
-                    fontWeight: "500",
-                  }}
-                >
-                  Or sign in with
-                </Text>
-                <View
-                  style={{ flex: 1, height: 1, backgroundColor: theme.border }}
-                />
-              </View>
+          <View style={{ flex: 1, minHeight: 32 }} />
 
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  marginTop: 12,
-                }}
-              >
-                <Text style={{ fontSize: 13, color: theme.textSecondary }}>
-                  {t("auth.noAccount")}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setIsHrModalOpen(true)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontWeight: "700",
-                      color: theme.primary,
-                    }}
-                  >
-                    {t("auth.contactHr")}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+          <View
+            style={[
+              styles.footer,
+              {
+                borderColor: theme.border,
+                backgroundColor: isDark ? "#0C0C0C" : "#F8FAFC",
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.footerIcon,
+                { backgroundColor: isDark ? "#172554" : "#DBEAFE" },
+              ]}
+            >
+              <Feather name="headphones" size={16} color={theme.primary} />
             </View>
+            <Text
+              style={{ flex: 1, fontSize: 13, color: theme.textSecondary }}
+              numberOfLines={2}
+            >
+              {t("auth.noAccount")}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setIsHrModalOpen(true)}
+              activeOpacity={0.7}
+              hitSlop={8}
+            >
+              <Text style={[styles.link, { color: theme.primary }]}>
+                {t("auth.contactHr")}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
       <Modal isOpen={isHrModalOpen} onClose={() => setIsHrModalOpen(false)}>
         <ModalContent
-          style={{ width: "95%", alignSelf: "center", maxWidth: 480 }}
+          style={{ width: "92%", alignSelf: "center", maxWidth: 480 }}
         >
           <ModalHeader>
-            <View style={{ flex: 1 }}>
+            <View
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
               <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+                style={[
+                  styles.modalIcon,
+                  { backgroundColor: isDark ? "#172554" : "#DBEAFE" },
+                ]}
               >
-                <View
+                <Feather name="users" size={18} color={theme.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
                   style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 19,
-                    backgroundColor: theme.background,
-                    justifyContent: "center",
-                    alignItems: "center",
+                    fontSize: 17,
+                    fontWeight: "700",
+                    color: theme.textMain,
                   }}
                 >
-                  <Feather name="phone" size={18} color={theme.primary} />
-                </View>
-                <View>
-                  <Text
-                    style={{
-                      fontSize: 17,
-                      fontWeight: "700",
-                      color: theme.textMain,
-                    }}
-                  >
-                    {t("auth.modalTitle")}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      color: theme.textSecondary,
-                      marginTop: 1,
-                    }}
-                  >
-                    {t("auth.modalSubtitle")}
-                  </Text>
-                </View>
+                  {t("auth.modalTitle")}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: theme.textSecondary,
+                    marginTop: 2,
+                  }}
+                >
+                  {t("auth.modalSubtitle")}
+                </Text>
               </View>
             </View>
             <TouchableOpacity
               onPress={() => setIsHrModalOpen(false)}
               style={{ padding: 4 }}
+              hitSlop={8}
             >
               <Feather name="x" size={20} color={theme.textSecondary} />
             </TouchableOpacity>
@@ -527,122 +355,74 @@ export default function LoginScreen() {
               style={{
                 fontSize: 13,
                 color: theme.textSecondary,
-                lineHeight: 18,
+                lineHeight: 19,
                 marginBottom: 16,
               }}
             >
               {t("auth.modalBody")}
             </Text>
 
-            <View style={{ gap: 12, marginBottom: 16 }}>
-              {hrContacts.map((hr, idx) => (
+            <View style={{ gap: 10, marginBottom: 14 }}>
+              {hrContacts.map((hr) => (
                 <View
-                  key={idx}
-                  style={{
-                    padding: 14,
-                    borderRadius: 12,
-                    backgroundColor: theme.cardBg,
-                    borderWidth: 1,
-                    borderColor: theme.border,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
+                  key={hr.email}
+                  style={[
+                    styles.contactCard,
+                    {
+                      backgroundColor: theme.cardBg,
+                      borderColor: theme.border,
+                    },
+                  ]}
                 >
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 12,
-                      flex: 1,
-                    }}
-                  >
-                    <View
+                  <View style={[styles.avatar, { backgroundColor: hr.bg }]}>
+                    <Text
                       style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 21,
-                        backgroundColor: hr.bg,
-                        justifyContent: "center",
-                        alignItems: "center",
+                        fontSize: 14,
+                        fontWeight: "700",
+                        color: hr.color,
                       }}
                     >
-                      <Text
-                        style={{
-                          fontSize: 15,
-                          fontWeight: "700",
-                          color: hr.color,
-                        }}
-                      >
-                        {hr.initials}
-                      </Text>
-                    </View>
+                      {hr.initials}
+                    </Text>
+                  </View>
 
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          fontWeight: "600",
-                          color: theme.textMain,
-                        }}
-                      >
-                        {hr.name}
-                      </Text>
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 6,
-                          marginTop: 2,
-                        }}
-                      >
-                        <Text
-                          style={{ fontSize: 11, color: theme.textSecondary }}
-                        >
-                          {hr.dept}
-                        </Text>
-                        <Text
-                          style={{ fontSize: 11, color: theme.textSecondary }}
-                        >
-                          •
-                        </Text>
-                        <Text
-                          style={{ fontSize: 11, color: theme.textSecondary }}
-                        >
-                          Ext: {hr.ext}
-                        </Text>
-                      </View>
-                    </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "600",
+                        color: theme.textMain,
+                      }}
+                    >
+                      {hr.name}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: theme.textSecondary,
+                        marginTop: 2,
+                      }}
+                    >
+                      {hr.dept} · Ext {hr.ext}
+                    </Text>
                   </View>
 
                   <View style={{ flexDirection: "row", gap: 8 }}>
                     <TouchableOpacity
                       onPress={() => handleCall(hr.phone)}
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 18,
-                        backgroundColor: theme.background,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        borderWidth: 1,
-                        borderColor: theme.border,
-                      }}
+                      style={[
+                        styles.roundAction,
+                        { backgroundColor: isDark ? "#172554" : "#EFF6FF" },
+                      ]}
                     >
                       <Feather name="phone" size={16} color={theme.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleEmail(hr.email)}
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 18,
-                        backgroundColor: theme.background,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        borderWidth: 1,
-                        borderColor: theme.border,
-                      }}
+                      style={[
+                        styles.roundAction,
+                        { backgroundColor: isDark ? "#172554" : "#EFF6FF" },
+                      ]}
                     >
                       <Feather name="mail" size={16} color={theme.primary} />
                     </TouchableOpacity>
@@ -652,50 +432,28 @@ export default function LoginScreen() {
             </View>
 
             <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 8,
-                padding: 12,
-                borderRadius: 10,
-                backgroundColor: theme.background,
-                borderWidth: 1,
-                borderColor: theme.border,
-                marginBottom: 8,
-              }}
+              style={[
+                styles.hoursRow,
+                {
+                  backgroundColor: isDark ? "#0C0C0C" : "#F8FAFC",
+                  borderColor: theme.border,
+                },
+              ]}
             >
               <Feather name="clock" size={16} color={theme.textSecondary} />
-              <View>
-                <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                  {t("auth.modalHours")}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "600",
-                    color: theme.textMain,
-                    marginTop: 1,
-                  }}
-                >
+              <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                {t("auth.modalHours")}:{" "}
+                <Text style={{ fontWeight: "600", color: theme.textMain }}>
                   {t("auth.modalHoursVal")}
                 </Text>
-              </View>
+              </Text>
             </View>
 
             <Button
               onPress={() => setIsHrModalOpen(false)}
               label={t("auth.modalClose")}
-              style={{
-                height: 48,
-                borderRadius: 12,
-                backgroundColor: theme.primary,
-                marginTop: 8,
-              }}
-              textStyle={{
-                fontSize: 14,
-                fontWeight: "600",
-                color: "#FFFFFF",
-              }}
+              style={{ height: 48, borderRadius: 12, marginTop: 16 }}
+              textStyle={{ fontSize: 15, fontWeight: "600", color: "#FFFFFF" }}
             />
           </ModalBody>
         </ModalContent>
@@ -703,3 +461,99 @@ export default function LoginScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  sheet: {
+    flex: 1,
+    marginTop: -SHEET_OVERLAP,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+  },
+  optionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 18,
+  },
+  link: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 28,
+  },
+  primaryBtn: {
+    height: 54,
+    borderRadius: 14,
+  },
+  primaryBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  bioBtn: {
+    width: 54,
+    height: 54,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  footerIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  contactCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  roundAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hoursRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+});

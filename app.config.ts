@@ -36,7 +36,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       foregroundImage: "./src/assets/images/adaptive-icon.png",
       backgroundColor: "#ffffff",
     },
-    edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: process.env.EXPO_PUBLIC_BUNDLE_ID || "com.hrm.mobile",
     // @ts-ignore

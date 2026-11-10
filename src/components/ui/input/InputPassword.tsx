@@ -12,6 +12,7 @@ interface InputPasswordProps {
   isInvalid?: boolean;
   style?: any;
   leftSlot?: React.ReactNode;
+  inputProps?: React.ComponentProps<typeof Input>["inputProps"];
 }
 
 export const InputPassword = ({
@@ -22,6 +23,7 @@ export const InputPassword = ({
   isInvalid,
   style,
   leftSlot,
+  inputProps,
 }: InputPasswordProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const colorScheme = useColorScheme() ?? "light";
@@ -37,9 +39,11 @@ export const InputPassword = ({
       secureTextEntry={!showPassword}
       style={style}
       leftSlot={leftSlot}
+      inputProps={{ autoCapitalize: "none", autoCorrect: false, ...inputProps }}
       rightSlot={
         <TouchableOpacity
           style={{ paddingHorizontal: 8 }}
+          hitSlop={8}
           onPress={() => setShowPassword(!showPassword)}
         >
           <Feather
